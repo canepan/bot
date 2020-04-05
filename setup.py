@@ -6,7 +6,8 @@ setuptools.setup(
     author='Nicola Canepa',
     author_email='canne74@gmail.com',
     description='Useful tools',
-    packages=setuptools.find_packages(exclude=['.tox', 'test']),
+    packages=setuptools.find_packages('src', exclude=['.tox', 'test']),
+    package_dir={"": "src"},
     install_requires=['attrs', 'typing'],
 #    package_data={'canepa': ['../templates/*', '../static/*', '../static/*/*']},
     classifiers=[
