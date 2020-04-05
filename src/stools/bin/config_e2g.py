@@ -55,33 +55,31 @@ class Category(object):
     }
     FILE_FOOTER = {'sitelist': '', 'urllist': ''}
     category = attr.ib()
-    rules_dir = attr.ib()
 
     def line(self, category_type):
-        return f'#.Include<{ETC_DIR}/lists/blacklists/{self.category}/{self.category_mapping[category_type]}>'
+        return f'.Include<{ETC_DIR}/lists/blacklists/{self.category}/{self.category_mapping[category_type]}>'
 
     @classmethod
     def rules_file(cls, filename, category_type, rules_dir):
         return os.path.join(ETC_DIR, rules_dir, '{}{}'.format(filename, category_type))
 
-    @classmethod
-    def exists(cls, catname):
+    def exists(self, category_type):
         basedir = os.path.join(ETC_DIR, 'lists', 'blacklists')
-        domfile = os.path.join(basedir, catname, 'domains')
-        urlfile = os.path.join(basedir, catname, 'urls')
-        return os.path.isfile(domfile) and os.path.isfile(urlfile)
+        catfile = os.path.join(basedir, self.category, self.category_mapping[category_type])
+        return os.path.isfile(catfile)
 
 
 def main():
     cfg = parse_args()
-    categories = (Category(c) for c in cfg.categories if Category.exists(c))
+    categories = [Category(c) for c in cfg.categories]
     for fn in cfg.filenames:
         for ctype in ('sitelist', 'urllist'):
             new_config = '{}{}{}'.format(
                 Category.FILE_HEADER[ctype],
-                '\n'.join([category.line(ctype) for category in categories]),
+                '\n'.join([category.line(ctype) for category in categories if category.exists(ctype)]),
                 Category.FILE_FOOTER[ctype],
             )
+            _log.debug(new_config)
             rules_file = Category.rules_file(fn, ctype, cfg.rules_dir)
             if new_config.strip() != file_content(rules_file).strip():
                 _log.info('Rules for %s/%s differ: replacing', fn, ctype)
