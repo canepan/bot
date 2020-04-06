@@ -6,7 +6,7 @@ import subprocess
 
 import attr
 
-from ..lib.stools.defaults import host_if_not_me, parse_args
+from ..lib.stools_defaults import host_if_not_me, parse_args
 
 
 if __name__ == '__main__':

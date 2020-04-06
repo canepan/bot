@@ -6,7 +6,7 @@ import sys
 import attr
 
 
-APP_NAME = 'canepan.stools'
+APP_NAME = 'canepan.tools'
 HOSTS = ['phoenix', 'raspy2', 'raspy3']
 _log = logging.getLogger(APP_NAME)
 
