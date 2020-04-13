@@ -8,7 +8,7 @@ setuptools.setup(
     description='Useful tools',
     packages=setuptools.find_packages('src', exclude=['.tox', 'test']),
     package_dir={"": "src"},
-    install_requires=['attrs', 'typing'],
+    install_requires=['attrs', 'typing', 'ConfigArgParse'],
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',

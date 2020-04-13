@@ -1,5 +1,5 @@
 #!/mnt/opt/nicola/tools/bin/python3
-import argparse
+import configargparse
 import attr
 import json
 import logging
@@ -8,7 +8,7 @@ import re
 import sys
 from datetime import datetime
 
-from tools.lib.logging_utils import MaxLevelFilter
+from tools.lib import logging_utils
 
 
 APP_NAME = 'canepa.e2g.config'
@@ -17,14 +17,16 @@ ETC_DIR = '/etc/e2guardian'
 _log = logging.getLogger(APP_NAME)
 
 
-def parse_args(argv=None, descr='Create e2g configuration') -> argparse.Namespace:
+def parse_args(argv=None, descr='Create e2g configuration') -> configargparse.Namespace:
     if argv is None:
         argv = sys.argv[1:]
-    parser = argparse.ArgumentParser(
+    parser = configargparse.ArgumentParser(
         description=descr,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=configargparse.ArgumentDefaultsHelpFormatter,
+        default_config_files=[],
     )
-    parser.add_argument('categories', nargs='+', default=['adult', 'games'], help='Categories to ban')
+    parser.add_argument('--categories', nargs='+', default=['adult', 'games'], help='Categories to ban')
+    parser.add_argument('--config', '-c', is_config_file=True, help='{} config file'.format(APP_NAME))
     parser.add_argument('--filenames', nargs='+', default=['banned', 'weighted'], help='Base names to append sitelist and urllist to')
     parser.add_argument(
         '--rules-dir', '-r', default='kids', help='Directory with the rules files (relative to )'.format(ETC_DIR)
@@ -34,19 +36,7 @@ def parse_args(argv=None, descr='Create e2g configuration') -> argparse.Namespac
     g.add_argument('-q', '--quiet', action='store_true')
     g.add_argument('-v', '--verbose', action='store_true')
     cfg = parser.parse_args(argv)
-    cfg.log = logging.getLogger(APP_NAME)
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.INFO)
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.addFilter(MaxLevelFilter(logging.INFO))
-    cfg.log.addHandler(stderr_handler)
-    cfg.log.addHandler(stdout_handler)
-    if cfg.verbose:
-        cfg.log.setLevel(logging.DEBUG)
-    elif cfg.quiet:
-        cfg.log.setLevel(logging.ERROR)
-    else:
-        cfg.log.setLevel(logging.INFO)
+    cfg.log = logging_utils.get_logger(APP_NAME, verbose=cfg.verbose, quiet=cfg.quiet)
     return cfg
 
 
@@ -89,8 +79,8 @@ def e2config_exists(category_type: str, rules_dir: str, basename: str) -> bool:
     return os.path.isfile(fname)
 
 
-def main():
-    cfg = parse_args()
+def main(argv=None):
+    cfg = parse_args(argv)
     categories = [Category(c) for c in cfg.categories]
     for fn in cfg.filenames:
         for ctype in (c for c in ('sitelist', 'urllist', 'phraselist') if e2config_exists(c, cfg.rules_dir, fn)):
