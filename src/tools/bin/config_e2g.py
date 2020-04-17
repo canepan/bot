@@ -17,9 +17,7 @@ ETC_DIR = '/etc/e2guardian'
 _log = logging.getLogger(APP_NAME)
 
 
-def parse_args(argv=None, descr='Create e2g configuration') -> configargparse.Namespace:
-    if argv is None:
-        argv = sys.argv[1:]
+def parse_args(argv: list, descr='Create e2g configuration') -> configargparse.Namespace:
     parser = configargparse.ArgumentParser(
         description=descr,
         formatter_class=configargparse.ArgumentDefaultsHelpFormatter,
@@ -79,7 +77,7 @@ def e2config_exists(category_type: str, rules_dir: str, basename: str) -> bool:
     return os.path.isfile(fname)
 
 
-def main(argv=None):
+def main(argv=sys.argv[1:]):
     cfg = parse_args(argv)
     categories = [Category(c) for c in cfg.categories]
     for fn in cfg.filenames:
