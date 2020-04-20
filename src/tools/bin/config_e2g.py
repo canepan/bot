@@ -8,13 +8,13 @@ import re
 import sys
 from datetime import datetime
 
-from tools.lib import logging_utils
+from tools.lib import (logging_utils, text_utils)
 
 
 APP_NAME = 'canepa.e2g.config'
 ETC_DIR = '/etc/e2guardian'
 
-_log = logging.getLogger(APP_NAME)
+_log = logging.getLogger('tools')
 
 
 def parse_args(argv: list, descr='Create e2g configuration') -> configargparse.Namespace:
@@ -34,7 +34,7 @@ def parse_args(argv: list, descr='Create e2g configuration') -> configargparse.N
     g.add_argument('-q', '--quiet', action='store_true')
     g.add_argument('-v', '--verbose', action='store_true')
     cfg = parser.parse_args(argv)
-    cfg.log = logging_utils.get_logger(APP_NAME, verbose=cfg.verbose, quiet=cfg.quiet)
+    cfg.log = logging_utils.get_logger('tools', verbose=cfg.verbose, quiet=cfg.quiet)
     return cfg
 
 
@@ -89,8 +89,13 @@ def main(argv=sys.argv[1:]):
             )
             _log.debug(new_config)
             rules_file = Category.rules_file(fn, ctype, cfg.rules_dir)
-            if new_config.strip() != file_content(rules_file).strip():
+            current_config = file_content(rules_file)
+            if new_config.strip() != current_config.strip():
                 _log.info('Rules for %s/%s differ: replacing', fn, ctype)
+                _log.debug('Full difference:\n%s', text_utils.CompareContents(
+                    current_config, new_config,
+                    old_file_name=f'current {rules_file}', new_file_name=f'proposed {rules_file}'
+                ))
                 timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                 if cfg.unsafe:
                     _log.info(
