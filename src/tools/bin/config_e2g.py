@@ -67,7 +67,6 @@ class Category(object):
 
     def exists(self, category_type):
         catfile = self._list_file(category_type)
-        _log.debug('Checking list %s', catfile)
         return os.path.isfile(catfile)
 
 
@@ -80,6 +79,7 @@ def e2config_exists(category_type: str, rules_dir: str, basename: str) -> bool:
 def main(argv=sys.argv[1:]):
     cfg = parse_args(argv)
     categories = [Category(c) for c in cfg.categories]
+    cfg.log.info('About to ban %s', cfg.categories)
     for fn in cfg.filenames:
         for ctype in (c for c in ('sitelist', 'urllist', 'phraselist') if e2config_exists(c, cfg.rules_dir, fn)):
             new_config = '{}{}{}'.format(
@@ -87,7 +87,6 @@ def main(argv=sys.argv[1:]):
                 '\n'.join([category.line(ctype) for category in categories if category.exists(ctype)]),
                 Category.FILE_FOOTER[ctype],
             )
-            _log.debug(new_config)
             rules_file = Category.rules_file(fn, ctype, cfg.rules_dir)
             current_config = file_content(rules_file)
             if new_config.strip() != current_config.strip():
