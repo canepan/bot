@@ -80,6 +80,7 @@ def main(argv=sys.argv[1:]):
     cfg = parse_args(argv)
     categories = [Category(c) for c in cfg.categories]
     cfg.log.info('About to ban %s', cfg.categories)
+    changed_files = 0
     for fn in cfg.filenames:
         for ctype in (c for c in ('sitelist', 'urllist', 'phraselist') if e2config_exists(c, cfg.rules_dir, fn)):
             new_config = '{}{}{}'.format(
@@ -90,6 +91,7 @@ def main(argv=sys.argv[1:]):
             rules_file = Category.rules_file(fn, ctype, cfg.rules_dir)
             current_config = file_content(rules_file)
             if new_config.strip() != current_config.strip():
+                changed_files += 1
                 _log.info('Rules for %s/%s differ: replacing', fn, ctype)
                 _log.debug('Full difference:\n%s', text_utils.CompareContents(
                     current_config, new_config,
@@ -110,6 +112,9 @@ def main(argv=sys.argv[1:]):
                     _log.info('Would have rewritten %s', rules_file)
             else:
                 _log.info('Rules in %s are the same: keeping', rules_file)
+    if changed_files == 0:
+        _log.error('No files to change')
+        return 1
     return 0
 
 
