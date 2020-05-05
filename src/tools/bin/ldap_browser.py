@@ -1,6 +1,7 @@
 #!/mnt/opt/nicola/tools/bin/python
 import attr
 import configargparse
+import json
 import ldap
 import logging
 import os
@@ -93,14 +94,14 @@ class Ldap(object):
             _log.debug('Bind result: %s', self._bind_result)
         return self.__ldap
 
-    def search(self, *args, **kwargs):
-        return self._ldap.search(*args, **kwargs)
+    def search(self, filterstr, *args, **kwargs):
+        return self._ldap.search_st(*args, base=self._base_dn, filterstr=filterstr, scope=ldap.SCOPE_SUBTREE, timeout=3, **kwargs)
 
 
 def main(argv=sys.argv[1:]):
     cfg = parse_args(argv)
     l = Ldap(rc=cfg.ldap_rc, pass_file=cfg.ldap_secret)
-    cfg.log.info(l.search('uid=nicola'))
+    cfg.log.info(json.dumps(l.search(filterstr='uid=nicola'), indent=2, default=str))
     return 0
 
 
