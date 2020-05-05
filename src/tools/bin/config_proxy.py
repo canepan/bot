@@ -1,6 +1,6 @@
 #!/mnt/opt/nicola/tools/bin/python3
-import configargparse
 import attr
+import configargparse
 import json
 import logging
 import os
@@ -229,4 +229,3 @@ def main(argv=sys.argv[1:]):
 
 if __name__ == '__main__':
     sys.exit(main())
-
