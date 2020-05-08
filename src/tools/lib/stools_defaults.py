@@ -5,6 +5,8 @@ import sys
 
 import attr
 
+from ..lib.parse_args import LoggingArgumentParser
+
 
 APP_NAME = 'canepan.tools'
 HOSTS = ['phoenix', 'raspy2', 'raspy3']
@@ -20,23 +22,11 @@ class Host(object):
 def parse_args(argv=None, descr='Sync local to remote files with the same name') -> argparse.Namespace:
     if argv is None:
         argv = sys.argv[1:]
-    parser = argparse.ArgumentParser(
-        description=descr,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('--diff', '-d', default='diff -buB', help='Command (with params) to use for diff')
     parser.add_argument('--hosts', '-H', nargs='+', default=HOSTS)
     parser.add_argument('filenames', nargs='+')
-    g = parser.add_mutually_exclusive_group()
-    g.add_argument('-q', '--quiet', action='store_true')
-    g.add_argument('-v', '--verbose', action='store_true')
     cfg = parser.parse_args(argv)
-    cfg.log = logging.getLogger(APP_NAME)
-    if cfg.verbose:
-        cfg.log.setLevel('DEBUG')
-        cfg.log.addHandler(logging.StreamHandler())
-    elif cfg.quiet:
-        cfg.log.setLevel('ERROR')
     return cfg
 
 

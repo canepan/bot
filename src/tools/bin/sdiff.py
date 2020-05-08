@@ -1,38 +1,38 @@
-#!/usr/bin/env python3
+#!/mnt/opt/nicola/tools/bin/python
 import argparse
 import os
 import socket
 import subprocess
 import sys
 
-from ..lib.defaults import HOSTS
+from tools.lib.stools_defaults import HOSTS
+from tools.lib.parse_args import LoggingArgumentParser
+
+APP_NAME = 'SSHDiff'
 
 
-def debug(*text):
-    if _debug:
-        print(*text)
-
-
-if __name__ == '__main__':
-    _debug = os.environ.get('DEBUG', False) is not False
-    #_other_hosts = os.environ.get('OTHER_HOSTS', 'raspy raspy2').split()
-    parser = argparse.ArgumentParser(
+def parse_args(argv):
+    parser = LoggingArgumentParser(
         description='Checks the difference between local and remote files with the sane name',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        app_name=APP_NAME,
     )
-    parser.add_argument('--hosts', '-H', nargs='+', default=hosts_defaults)
+    parser.add_argument('--hosts', '-H', nargs='+', default=HOSTS)
     parser.add_argument('--diff', '-d', default='diff -buB', help='Command (with params) to use for diff')
     parser.add_argument('filename', nargs='+')
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main(argv: list = sys.argv[1:]):
+    args = parse_args(argv)
     _other_hosts = args.hosts
 
     _myhn = socket.gethostname()
-    debug('Resolving {}'.format(_myhn))
+    args.log.debug('Resolving {}'.format(_myhn))
     _myip = socket.gethostbyname(_myhn)
     for _fn in args.filename:
         for _hn in _other_hosts:
             if _hn != _myhn:
-                debug('Resolving {}'.format(_hn))
+                args.log.debug('Resolving {}'.format(_hn))
                 try:
                     _ip = socket.gethostbyname(_hn)
                     if _ip != _myip:
@@ -40,15 +40,17 @@ if __name__ == '__main__':
                             'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; '
                             'exit 0'.format(_hn, _fn, args.diff), stderr=subprocess.STDOUT, shell=True)
                         if result.decode():
-                            print('Diff between local and {}:{}'.format(_hn, _fn))
-                            print(result.decode())
+                            args.log.info('Diff between local and %s:%s\n%s', _hn, _fn, result.decode())
                         else:
-                            print('{} is the same on {}'.format(_fn, _hn))
+                            args.log.info('%s is the same on %s', _fn, _hn)
                 except subprocess.CalledProcessError as e:
-                    print(e.output.decode())
-                    debug('Exit code: {}'.format(e.returncode))
+                    args.log.error(e.output.decode())
+                    args.log.debug('Exit code: %s', e.returncode)
                 except socket.gaierror as e:
-                    print('Error resolving {}: {}'.format(_hn, e))
+                    args.log.error('Error resolving %s: %s', _hn, e)
                 except Exception as e:
-                    print(e)
+                    args.log.error(e)
 
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -18,9 +18,10 @@ setuptools.setup(
     python_requires='>=3.6',
     entry_points={
         "console_scripts": [
+            "config_e2g = tools.bin.config_e2g:main",
+            "ldap_browse = tools.bin.ldap_browse:main",
             "sdiff.py = tools.bin.sdiff:main",
             "ssync.py = tools.bin.ssync:main",
-            "config_e2g = tools.bin.config_e2g:main",
         ],
     }
 )

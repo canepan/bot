@@ -1,16 +1,16 @@
 #!/mnt/opt/nicola/tools/bin/python3
-import argparse
 import os
 import socket
 import subprocess
+import sys
 
 import attr
 
-from ..lib.stools_defaults import host_if_not_me, parse_args
+from tools.lib.stools_defaults import host_if_not_me, parse_args
 
 
-if __name__ == '__main__':
-    args = parse_args()
+def main(argv: list = sys.argv[1:]):
+    args = parse_args(argv)
     _other_hosts = args.hosts
 
     for _host in host_if_not_me(args.hosts):
@@ -30,4 +30,8 @@ if __name__ == '__main__':
                 args.log.debug('Exit code: {}'.format(e.returncode))
             except Exception as e:
                 args.log.error(e)
+        return 0
 
+
+if __name__ == '__main__':
+    sys.exit(main())

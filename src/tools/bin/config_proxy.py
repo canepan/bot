@@ -1,6 +1,6 @@
 #!/mnt/opt/nicola/tools/bin/python3
 import attr
-import configargparse
+import argparse
 import json
 import logging
 import os
@@ -11,7 +11,8 @@ from functools import lru_cache
 
 if os.path.abspath(os.path.dirname(os.path.dirname(__file__))) not in sys.path:
     sys.path.insert(1, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-from tools.lib import (logging_utils, text_utils)
+from tools.lib import text_utils
+from tools.lib.parse_args import LoggingArgumentParser
 
 
 APP_NAME = 'canepa.proxy.config'
@@ -21,14 +22,9 @@ ETC_SG_FILE = '/etc/squidguard/squidGuard.conf'
 _log = logging.getLogger('tools')
 
 
-def parse_args(argv: list, descr='Create e2g configuration') -> configargparse.Namespace:
-    parser = configargparse.ArgumentParser(
-        description=descr,
-        formatter_class=configargparse.ArgumentDefaultsHelpFormatter,
-        default_config_files=[],
-    )
+def parse_args(argv: list, descr: str = 'Create e2g configuration') -> argparse.Namespace:
+    parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('--categories', nargs='+', default=['adult', 'games'], help='Categories to ban')
-    parser.add_argument('--config', '-c', is_config_file=True, help='{} config file'.format(APP_NAME))
     parser.add_argument(
         '--filter-types', nargs='+', default=['banned', 'weighted'], help='Filter types: sitelist, urllist will be appended'
     )
@@ -39,12 +35,7 @@ def parse_args(argv: list, descr='Create e2g configuration') -> configargparse.N
     parser.add_argument(
         '--format', choices=('e2guardian', 'squidguard'), default='e2guardian', help='Configure the specified package'
     )
-    g = parser.add_mutually_exclusive_group()
-    g.add_argument('-q', '--quiet', action='store_true')
-    g.add_argument('-v', '--verbose', action='store_true')
-    cfg = parser.parse_args(argv)
-    cfg.log = logging_utils.get_logger('tools', verbose=cfg.verbose, quiet=cfg.quiet)
-    return cfg
+    return parser.parse_args(argv)
 
 
 def file_content(filename):
