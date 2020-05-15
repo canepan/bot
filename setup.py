@@ -21,6 +21,7 @@ setuptools.setup(
             "config_e2g = tools.bin.config_e2g:main",
             "ldap_browse = tools.bin.ldap_browse:main",
             "sdiff.py = tools.bin.sdiff:main",
+            "slapd_log = tools.bin.slapd_log:main",
             "ssync.py = tools.bin.ssync:main",
         ],
     }
