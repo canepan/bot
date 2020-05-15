@@ -29,13 +29,11 @@ def empty_dict() -> dict:
 
 class LdapLogFlow(dict):
     def __init__(self, *args, **kwargs):
-        kwargs['err_0'] = []
-        kwargs['errors'] = []
-        kwargs['other'] = []
-        kwargs['mod'] = []
-        kwargs['search'] = []
         self.last_op = None
         super(LdapLogFlow, self).__init__(*args, **kwargs)
+        for empty_key in ('err_0', 'errors', 'other', 'mod', 'search'):
+            if empty_key not in self:
+                self[empty_key] = []
 
     def parse_result(self, parts: list):
         if parts[2] == 'err=0':
