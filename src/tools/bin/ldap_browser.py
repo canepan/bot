@@ -25,11 +25,12 @@ def parse_args(argv: list, descr='Manage/browse LDAP tree') -> argparse.Namespac
         '--ldap-rc', '-L', default=os.path.join(os.environ['HOME'], '.ldaprc'), help='File to read instead of .ldaprc'
     )
     parser.add_argument(
-        '--ldap-secret', '-S', default=os.path.join(os.environ['HOME'], '.ldap.secret'), help='Password file'
+        '--ldap-secret', '-y', default=os.path.join(os.environ['HOME'], '.ldap.secret'), help='Password file'
     )
     parser.add_argument('--ldap-bind-dn', '-D', default=None, help='LDAP base DN')
     parser.add_argument('--ldap-base', '-b', default=None, help='LDAP base DN')
     parser.add_argument('--ldap-attrs', '-a', default=None, nargs='+', help='LDAP attrs')
+    parser.add_argument('--json', '-j', action='store_true', help='Output in JSON format')
     return parser.parse_args(argv)
 
 
@@ -52,7 +53,7 @@ class LdapRc(object):
 
 
 @attr.s
-class Ldap(object):
+class LdapBrowser(object):
     rc = attr.ib()
     pass_file = attr.ib()
     _secret = attr.ib(default=None)
@@ -61,6 +62,7 @@ class Ldap(object):
     _config_suffix = attr.ib(default='')
     _uri = attr.ib(default=None)
     verbose = attr.ib(default=False)
+    as_json = attr.ib(default=False)
 
     def __attrs_post_init__(self):
         self._config = LdapRc(self.rc)
@@ -100,17 +102,17 @@ class Ldap(object):
         )
         return compact_dict(ldap_result)
 
-    def printable(self, ldap_data):
-        # return json.dumps(ldap_data, indent=2, default=str)
-        # print(ldap_data)
+    def printable(self, ldap_data, indent: int = 0) -> str:
+        if self.as_json:
+            return json.dumps(ldap_data, indent=2, default=str)
         lines = []
         processing_done = False
         try:
             result_dict = {}
             for k, v in ldap_data.items():
-                pv = self.printable(v)
+                pv = self.printable(v, indent=indent + 1)
                 if pv and (self.verbose or k != 'krbExtraData'):
-                    lines.append('{}: {}'.format(k, pv))
+                    lines.append(f'{indent * "  "}{k}: {pv.lstrip(" ")}')
             processing_done = True
         except AttributeError:
             pass
@@ -123,22 +125,22 @@ class Ldap(object):
         if processing_done is False:
             try:
                 if ldap_data.isascii():
-#                    print(repr(ldap_data))
-                    lines.append(ldap_data)
+                    lines.append(f'{indent * "  "}{ldap_data}')
                 elif self.verbose:
-                    lines.append(repr(ldap_data))
+                    lines.append(f'{indent * "  "}{repr(ldap_data)}')
                 processing_done = True
             except AttributeError:
                 pass
         if processing_done is False:
             try:
-                result_list = []
+                result_list = [indent * '  ']
                 for k in ldap_data:
-                    pk = self.printable(k)
-                    if pk:
+                    pk = self.printable(k, indent=indent)
+                    if pk.strip():
                         result_list.append(pk)
                 processing_done = True
-                lines.append(','.join(result_list))
+                lines.append('\n'.join(result_list))
+                processing_done = True
             except AttributeError:
                 pass
         return '\n'.join(lines)
@@ -187,14 +189,20 @@ def compact_dict(orig_dict):
 
 def main(argv=sys.argv[1:]):
     cfg = parse_args(argv)
-    args = {'rc': cfg.ldap_rc, 'pass_file': cfg.ldap_secret, 'base_dn': cfg.ldap_base, 'bind_dn': cfg.ldap_bind_dn, 'verbose': cfg.verbose}
+    args = {
+        'rc': cfg.ldap_rc,
+        'pass_file': cfg.ldap_secret,
+        'base_dn': cfg.ldap_base,
+        'bind_dn': cfg.ldap_bind_dn,
+        'verbose': cfg.verbose,
+        'as_json': cfg.json
+    }
     if cfg.filterstr == 'AccessLists':
         args['config_suffix'] =  'CONFIG'
         search_args = {'filterstr': 'olcAccess=*', 'attrlist': ['olcAccess']}
     else:
         search_args = {'filterstr': cfg.filterstr, 'attrlist': cfg.ldap_attrs}
-    l = Ldap(**args)
-#    cfg.log.info(json.dumps(l.search(**search_args), indent=2, default=str))
+    l = LdapBrowser(**args)
     cfg.log.info(l.printable(l.search(**search_args)))
     return 0
 
