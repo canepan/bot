@@ -62,7 +62,6 @@ class LdapBrowser(object):
     _config_suffix = attr.ib(default='')
     _uri = attr.ib(default=None)
     verbose = attr.ib(default=False)
-    as_json = attr.ib(default=False)
 
     def __attrs_post_init__(self):
         self._config = LdapRc(self.rc)
@@ -102,16 +101,18 @@ class LdapBrowser(object):
         )
         return compact_dict(ldap_result)
 
-    def printable(self, ldap_data, indent: int = 0) -> str:
-        if self.as_json:
+    @classmethod
+    def printable(cls, ldap_data, as_json: bool = False, indent: int = 0) -> str:
+        if as_json:
             return json.dumps(ldap_data, indent=2, default=str)
+        verbose = _log.isEnabledFor(logging.DEBUG)
         lines = []
         processing_done = False
         try:
             result_dict = {}
             for k, v in ldap_data.items():
-                pv = self.printable(v, indent=indent + 1)
-                if pv and (self.verbose or k != 'krbExtraData'):
+                pv = cls.printable(v, indent=indent + 1)
+                if pv and (verbose or k != 'krbExtraData'):
                     lines.append(f'{indent * "  "}{k}: {pv.lstrip(" ")}')
             processing_done = True
         except AttributeError:
@@ -126,16 +127,17 @@ class LdapBrowser(object):
             try:
                 if ldap_data.isascii():
                     lines.append(f'{indent * "  "}{ldap_data}')
-                elif self.verbose:
+                elif verbose:
                     lines.append(f'{indent * "  "}{repr(ldap_data)}')
                 processing_done = True
             except AttributeError:
                 pass
         if processing_done is False:
             try:
-                result_list = [indent * '  ']
+#                result_list = [indent * '  ']
+                result_list = []
                 for k in ldap_data:
-                    pk = self.printable(k, indent=indent)
+                    pk = cls.printable(k, indent=indent)
                     if pk.strip():
                         result_list.append(pk)
                 processing_done = True
@@ -143,37 +145,30 @@ class LdapBrowser(object):
                 processing_done = True
             except AttributeError:
                 pass
+        _log.debug(lines)
         return '\n'.join(lines)
 
-#    def get_acls(self):
-#        self._config_suffix = 'CONFIG'
-#        filterstr = 'olcAccess=*'
-#        attrs = ['olcAccess']
-#        ldap_result = self._ldap.search_st(
-#            base=self._base_dn, filterstr=filterstr, scope=ldap.SCOPE_SUBTREE, timeout=3, attrlist=attrs
-#        )
-#        self._config_suffix = ''
-#        return compact_dict(ldap_result)
-
-
 def compact_dict(orig_dict):
+    # dict
     try:
         result_dict = {}
         for k, v in orig_dict.items():
             if v:
                 result_dict[k] = compact_dict(v)
-#        if len(result_dict) == 1:
         return result_dict
     except AttributeError:
         pass
+    # decodable str
     try:
         return orig_dict.decode('utf-8')
     except (AttributeError, UnicodeDecodeError):
         pass
+    # str
     try:
         return orig_dict.strip()
     except AttributeError:
         pass
+    # iterable
     try:
         result_list = []
         for k in orig_dict:
@@ -195,7 +190,6 @@ def main(argv=sys.argv[1:]):
         'base_dn': cfg.ldap_base,
         'bind_dn': cfg.ldap_bind_dn,
         'verbose': cfg.verbose,
-        'as_json': cfg.json
     }
     if cfg.filterstr == 'AccessLists':
         args['config_suffix'] =  'CONFIG'
@@ -203,7 +197,7 @@ def main(argv=sys.argv[1:]):
     else:
         search_args = {'filterstr': cfg.filterstr, 'attrlist': cfg.ldap_attrs}
     l = LdapBrowser(**args)
-    cfg.log.info(l.printable(l.search(**search_args)))
+    cfg.log.info(l.printable(l.search(**search_args), as_json=cfg.json))
     return 0
 
 
