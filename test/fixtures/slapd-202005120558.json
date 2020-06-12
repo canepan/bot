@@ -1,0 +1,298 @@
+{
+  "5eba2c0d conn=131705": {
+    "err_0": [
+      "RESULT tag=97 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1
+    ],
+    "src_ip": "192.168.19.120:60162",
+    "dst_ip": "0.0.0.0",
+    "dst_port": "389",
+    "who": "dn=\"cn=manager,ou=system,dc=nicolacanepa,dc=net\""
+  },
+  "5eba2c10 conn=131705": {
+    "err_0": [],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      1,
+      "base=\"ou=groups,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixGroup)(|(memberUid=leonardo)(uniqueMember=cn=leonardo canepa,ou=users,dc=nicolacanepa,dc=net)))\"",
+      "attr=gidNumber",
+      0
+    ]
+  },
+  "5eba2c10 conn=83051": {
+    "err_0": [
+      "RESULT tag=103 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [
+      "dn=\"cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net\"",
+      "attr=krbLastSuccessfulAuth krbExtraData"
+    ],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=*)\"",
+      "attr=objectclass",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=host/phoenix.canne@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=host/phoenix.canne@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1
+    ]
+  },
+  "5eba2c10 conn=131706": {
+    "err_0": [
+      "RESULT tag=97 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1
+    ],
+    "src_ip": "192.168.19.120:60176",
+    "dst_ip": "0.0.0.0",
+    "dst_port": "389",
+    "who": "dn=\"cn=proxyuser,ou=system,dc=nicolacanepa,dc=net\""
+  },
+  "5eba2c10 conn=131707": {
+    "err_0": [
+      "RESULT tag=97 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1
+    ],
+    "src_ip": "192.168.19.120:60178",
+    "dst_ip": "0.0.0.0",
+    "dst_port": "389",
+    "who": "dn=\"cn=manager,ou=system,dc=nicolacanepa,dc=net\""
+  },
+  "5eba2c14 conn=131708": {
+    "err_0": [
+      "RESULT tag=97 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1
+    ],
+    "src_ip": "192.168.19.120:60186",
+    "dst_ip": "0.0.0.0",
+    "dst_port": "389",
+    "who": "dn=\"cn=manager,ou=system,dc=nicolacanepa,dc=net\""
+  },
+  "5eba2c16 conn=131708": {
+    "err_0": [],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      1,
+      "base=\"ou=groups,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixGroup)(|(memberUid=leonardo)(uniqueMember=cn=leonardo canepa,ou=users,dc=nicolacanepa,dc=net)))\"",
+      "attr=gidNumber",
+      0,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=leonardo))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      1
+    ]
+  },
+  "5eba2c16 conn=83051": {
+    "err_0": [
+      "RESULT tag=103 err=0 text=",
+      "RESULT tag=103 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [
+      "dn=\"cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net\"",
+      "attr=krbLastFailedAuth krbLoginFailedCount krbExtraData",
+      "dn=\"cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net\"",
+      "attr=krbLastFailedAuth krbLoginFailedCount krbExtraData"
+    ],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=*)\"",
+      "attr=objectclass",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=krbPwdPolicy)\"",
+      "attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts",
+      1,
+      "base=\"cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net\" scope=0 deref=0 filter=\"(objectClass=*)\"",
+      "attr=objectclass",
+      1
+    ]
+  },
+  "5eba2c19 conn=131708": {},
+  "5eba2c23 conn=131709": {
+    "err_0": [
+      "RESULT tag=97 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uidNumber=999))\"",
+      "attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass",
+      0
+    ],
+    "src_ip": "192.168.19.120:60228",
+    "dst_ip": "0.0.0.0",
+    "dst_port": "389",
+    "who": "dn=\"cn=manager,ou=system,dc=nicolacanepa,dc=net\""
+  },
+  "5eba2c26 conn=131710": {
+    "err_0": [
+      "RESULT tag=97 err=0 text="
+    ],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=root))\"",
+      0,
+      "base=\"ou=groups,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixGroup)(memberUid=root))\"",
+      "attr=gidNumber",
+      0,
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixAccount)(uid=root))\"",
+      0,
+      "base=\"ou=groups,dc=nicolacanepa,dc=net\" scope=1 deref=0 filter=\"(&(objectClass=posixGroup)(memberUid=root))\"",
+      "attr=gidNumber",
+      0
+    ],
+    "src_ip": "192.168.19.120:60240",
+    "dst_ip": "0.0.0.0",
+    "dst_port": "389",
+    "who": "dn=\"cn=manager,ou=system,dc=nicolacanepa,dc=net\""
+  },
+  "5eba2c26 conn=83051": {
+    "err_0": [],
+    "errors": [],
+    "other": [],
+    "mod": [],
+    "search": [
+      "base=\"ou=users,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=root@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0,
+      "base=\"cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net\" scope=2 deref=0 filter=\"(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=root@NICOLACANEPA.NET))\"",
+      "attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory",
+      0
+    ]
+  }
+}

@@ -53,6 +53,66 @@ class LdapRc(object):
 
 
 @attr.s
+class ItemProcessor(object):
+    ldap_data = attr.ib()
+    verbose = attr.ib()
+    indent = attr.ib()
+    exceptions = ()
+
+    def new_lines(self) -> list:
+        raise NotImplementedError()
+
+
+class ProcessDict(ItemProcessor):
+    exceptions = AttributeError
+
+    def new_lines(self):
+        lines = []
+        result_dict = {}
+        for k, v in self.ldap_data.items():
+            pv = LdapBrowser.printable(v, indent=self.indent + 1)
+            if pv and (self.verbose or k != 'krbExtraData'):
+                lines.append(f'{self.indent * "  "}{k}:{pv}')
+        return lines
+
+class ProcessBString(ItemProcessor):
+    exceptions = (AttributeError, UnicodeDecodeError)
+
+    def new_lines(self):
+        lines = []
+        lines.append(self.ldap_data.decode('utf-8'))
+        return lines
+
+
+class ProcessText(ItemProcessor):
+    exceptions = AttributeError
+
+    def new_lines(self):
+        lines = []
+        if self.ldap_data.isascii():
+            lines.append(f'{self.indent * "  "}{self.ldap_data}')
+        elif verbose:
+            lines.append(f'{self.indent * "  "}{repr(self.ldap_data)}')
+        return lines
+
+
+class ProcessList(ItemProcessor):
+    exceptions = AttributeError
+
+    def new_lines(self):
+        lines = []
+        result_list = []
+        for k in self.ldap_data:
+            pk = LdapBrowser.printable(k, indent=self.indent)
+            if pk.strip():
+                result_list.append(pk)
+        if len(result_list) > 1 and self.indent:
+            result_list = [''] + result_list
+        lines.append('\n'.join(result_list))
+        return lines
+
+
+@attr.s
 class LdapBrowser(object):
     rc = attr.ib()
     pass_file = attr.ib()
@@ -108,42 +168,15 @@ class LdapBrowser(object):
         verbose = _log.isEnabledFor(logging.DEBUG)
         lines = []
         processing_done = False
-        try:
-            result_dict = {}
-            for k, v in ldap_data.items():
-                pv = cls.printable(v, indent=indent + 1)
-                if pv and (verbose or k != 'krbExtraData'):
-                    lines.append(f'{indent * "  "}{k}: {pv.lstrip(" ")}')
-            processing_done = True
-        except AttributeError:
-            pass
-        if processing_done is False:
-            try:
-                lines.append(ldap_data.decode('utf-8'))
-                processing_done = True
-            except (AttributeError, UnicodeDecodeError):
-                pass
-        if processing_done is False:
-            try:
-                if ldap_data.isascii():
-                    lines.append(f'{indent * "  "}{ldap_data}')
-                elif verbose:
-                    lines.append(f'{indent * "  "}{repr(ldap_data)}')
-                processing_done = True
-            except AttributeError:
-                pass
-        if processing_done is False:
-            try:
-                result_list = []
-                for k in ldap_data:
-                    pk = cls.printable(k, indent=indent)
-                    if pk.strip():
-                        result_list.append(pk)
-                processing_done = True
-                lines.append('\n'.join(result_list))
-                processing_done = True
-            except AttributeError:
-                pass
+        for item_processor in (ProcessDict, ProcessBString, ProcessText, ProcessList):
+            if processing_done is False:
+                try:
+                    lines.extend(item_processor(ldap_data, verbose, indent).new_lines())
+                    processing_done = True
+                except item_processor.exceptions:
+                    pass
+            else:
+                break
         return '\n'.join(lines)
 
 def compact_dict(orig_dict):
