@@ -1,13 +1,24 @@
+import os
 import setuptools
+
+
+# Declare your non-python data files:
+# Files underneath shell/ will be copied into the build preserving the
+# subdirectory structure if they exist.
+data_files = []
+for root, dirs, files in os.walk('shell'):
+    data_files.append((os.path.relpath(root, 'shell'),
+                       [os.path.join(root, f) for f in files]))
 
 setuptools.setup(
     name='NicolaCanepa_Tools',
-    version='0.0.2',
+    version='0.0.3',
     author='Nicola Canepa',
     author_email='canne74@gmail.com',
     description='Useful tools',
     packages=setuptools.find_packages('src', exclude=['.tox', 'test']),
     package_dir={"": "src"},
+    data_files=data_files,
     install_requires=['attrs', 'python-ldap', 'typing', 'ConfigArgParse'],
     classifiers=[
         'Programming Language :: Python :: 3',
