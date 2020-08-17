@@ -16,6 +16,15 @@ class MaxLevelFilter(logging.Filter):
         return record.levelno < self.level # "<" instead of "<=": since logger.setLevel is inclusive, this should be exclusive
 
 
+def _stream_handler(logstream, loglevel, logname, logfilters=None) -> logging.Handler:
+    handler = logging.StreamHandler(logstream)
+    handler.setLevel(loglevel)
+    handler.set_name(logname)
+    for logfilter in logfilters or []:
+        handler.addFilter(logfilter)
+    return handler
+
+
 def get_logger(app_name: str, verbose: bool, quiet: bool, with_file: str = None):
     """
     Sets format to '%(asctime)s %(name)s:%(module)s:%(funcName)s:%(lineno)d %(message)s'  and datefmt to '%Y%m%d%H%M%S',
@@ -32,31 +41,28 @@ def get_logger(app_name: str, verbose: bool, quiet: bool, with_file: str = None)
                           the record is emitted
     """
     log = logging.getLogger(app_name)
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setLevel(logging.INFO)
-    stderr_handler.set_name('stderr')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.addFilter(MaxLevelFilter(logging.INFO))
-    stdout_handler.set_name('stdout')
+    stderr_handler = _stream_handler(logstream=sys.stderr, loglevel=logging.INFO, logname='stderr')
     log.addHandler(stderr_handler)
+    stdout_handler = _stream_handler(
+        logstream=sys.stdout, loglevel=logging.INFO, logname='stdout', logfilters=[MaxLevelFilter(logging.INFO)]
+    )
     log.addHandler(stdout_handler)
-    log.setLevel(logging.DEBUG)
     if verbose:
-        stdout_handler.setLevel(logging.DEBUG)
-        stderr_handler.setLevel(logging.DEBUG)
+        loglevel = logging.DEBUG
     elif quiet:
-        stdout_handler.setLevel(logging.ERROR)
-        stderr_handler.setLevel(logging.ERROR)
+        loglevel = logging.ERROR
     else:
-        stdout_handler.setLevel(logging.INFO)
-        stderr_handler.setLevel(logging.INFO)
+        loglevel = logging.INFO
     if with_file:
         logfile = logging.FileHandler(with_file)
         logfile.setLevel(logging.DEBUG)
         logfile.set_name('logfile')
         log.addHandler(logfile)
         logfile.setFormatter(LOG_FORMATTER)
+        log.setLevel(logging.DEBUG)
+        stderr_handler.setLevel(loglevel)
     else:
         stdout_handler.setFormatter(LOG_FORMATTER)
         stderr_handler.setFormatter(LOG_FORMATTER)
+        log.setLevel(loglevel)
     return log
