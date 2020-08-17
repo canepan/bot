@@ -5,8 +5,8 @@ import socket
 import subprocess
 import sys
 
-from tools.lib.stools_defaults import HOSTS
-from tools.lib.parse_args import LoggingArgumentParser
+from ..libs.stools_defaults import HOSTS
+from ..libs.parse_args import LoggingArgumentParser
 
 APP_NAME = 'SSHDiff'
 

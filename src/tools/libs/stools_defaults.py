@@ -5,7 +5,7 @@ import sys
 
 import attr
 
-from ..lib.parse_args import LoggingArgumentParser
+from ..libs.parse_args import LoggingArgumentParser
 
 
 APP_NAME = 'canepan.tools'

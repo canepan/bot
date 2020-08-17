@@ -6,7 +6,7 @@ import sys
 
 import attr
 
-from tools.lib.stools_defaults import host_if_not_me, parse_args
+from ..libs.stools_defaults import host_if_not_me, parse_args
 
 
 def main(argv: list = sys.argv[1:]):

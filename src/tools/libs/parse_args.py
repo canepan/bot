@@ -1,7 +1,7 @@
 import configargparse
 import sys
 
-from tools.lib import logging_utils
+from . import logging_utils
 
 
 class LoggingArgumentParser(configargparse.ArgumentParser):
@@ -27,8 +27,12 @@ def arg_parser(description: str) -> configargparse.ArgumentParser:
     return parser
 
 
-def with_quiet_verbose(app_name: str, parser: configargparse.ArgumentParser = None, argv: list = None) -> configargparse.Namespace:
-    """Optionally create a parser, add --quiet/--verbose and return parsed args with `.log`"""
+def with_quiet_verbose(
+    app_name: str, parser: configargparse.ArgumentParser = None, argv: list = None, logfile: str = None
+) -> configargparse.Namespace:
+    """
+    Optionally create a parser, add --quiet/--verbose and return parsed args with `.log`
+    """
     if not parser:
         parser = arg_parser(description='{} arguments'.format(app_name))
     parser.add_argument('--config', '-c', is_config_file=True, help='{} config file'.format(app_name))
@@ -38,6 +42,8 @@ def with_quiet_verbose(app_name: str, parser: configargparse.ArgumentParser = No
     if argv is None:
         argv = sys.argv[1:]
     cfg = parser.parse_args(argv)
-    cfg.log = logging_utils.get_logger('tools', verbose=cfg.verbose, quiet=cfg.quiet)
+    cfg.log = logging_utils.get_logger(
+        app_name, verbose=cfg.verbose, quiet=cfg.quiet, with_file=logfile.format(**cfg.__dict__)
+    )
     return cfg
 

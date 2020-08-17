@@ -11,8 +11,8 @@ from functools import lru_cache
 
 if os.path.abspath(os.path.dirname(os.path.dirname(__file__))) not in sys.path:
     sys.path.insert(1, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-from tools.lib import text_utils
-from tools.lib.parse_args import LoggingArgumentParser
+from ..libs import text_utils
+from ..libs.parse_args import LoggingArgumentParser
 
 
 APP_NAME = 'canepa.proxy.config'
