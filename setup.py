@@ -29,7 +29,8 @@ setuptools.setup(
     python_requires='>=3.6',
     entry_points={
         "console_scripts": [
-            "config_e2g = tools.bin.config_e2g:main",
+            "config_e2g = tools.bin.config_proxy:main", # compat
+            "config_proxy = tools.bin.config_proxy:main",
             "freedns.py = tools.bin.freedns:main",
             "ldap_browse = tools.bin.ldap_browser:main",
             "sdiff.py = tools.bin.sdiff:main",

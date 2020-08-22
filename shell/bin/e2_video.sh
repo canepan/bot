@@ -1,13 +1,14 @@
 #!/bin/bash
+_bin=/mnt/opt/nicola/tools/bin/config_proxy
 case "$1" in
   enable)
-    /usr/local/bin/configure_e2g -c /etc/squidguard/kids_allow_video.cfg --unsafe
-    /usr/local/bin/configure_e2g -c /etc/e2guardian/kids_allow_video.cfg --unsafe
+    "${_bin}" -c /etc/squidguard/kids_allow_video.cfg --unsafe
+    "${_bin}" -c /etc/e2guardian/kids_allow_video.cfg --unsafe
     [ $? -ne 0 ] && exit 0
     ;;
   disable)
-    /usr/local/bin/configure_e2g -c /etc/squidguard/kids.cfg --unsafe
-    /usr/local/bin/configure_e2g -c /etc/e2guardian/kids.cfg --unsafe
+    "${_bin}" -c /etc/squidguard/kids.cfg --unsafe
+    "${_bin}" -c /etc/e2guardian/kids.cfg --unsafe
     [ $? -ne 0 ] && exit 0
     ;;
   *)
