@@ -1,5 +1,5 @@
 #!/bin/bash
-_bin=/mnt/opt/nicola/tools/bin/config_proxy
+_bin="`dirname ${0}`/config_proxy"
 case "$1" in
   enable)
     "${_bin}" -c /etc/squidguard/kids_allow_video.cfg --unsafe
