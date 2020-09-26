@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 import logging
 import os
@@ -59,7 +59,7 @@ class NWN(object):
 
     def _mkdir(self, _dir: str) -> int:
         self.debug('Create dir %s', _dir)
-        if self.unsafe:
+        if self.unsafe and not os.path.isdir(_dir):
             try:
                 os.makedirs(_dir)
             except OSError as e:
@@ -139,9 +139,9 @@ class NWN(object):
 
     def on(self) -> int:
         _err = self._mount_local(data_dmg, data_link)
-#        if os.path.islink(data_link):
-#            _err += self._rm(data_link)
-#        _err += self._ln(f'{data_dir}/Neverwinter Nights', data_link)
+        # if os.path.islink(data_link):
+        #     _err += self._rm(data_link)
+        # _err += self._ln(f'{data_dir}/Neverwinter Nights', data_link)
         _err += self._mount_via_ssh(f'{data_link}/saves')
         _err += self._mount_local(bin_dmg, bin_dir)
         _err += self._exec([main_exe]).returncode
@@ -152,10 +152,12 @@ class NWN(object):
         _err += self._umount_local(bin_dir)
         umount_err = self._umount_local(data_link)
         if umount_err == 0:
-            _err += self._rm(data_link)
+            if os.path.islink(data_link):
+                _err += self._rm(data_link)
         else:
             _err += umount_err
         return _err
+
 
 def parse_args(argv) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
