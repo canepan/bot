@@ -3,7 +3,7 @@
 # (optional) You might need to set your PATH variable at the top here
 # depending on how you run this script
 #PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-PATH="$HOME/bin":$PATH
+PATH="$HOME/bin":/mnt/opt/nicola/aws/bin:$PATH
 
 # Hosted Zone ID e.g. BJBK35SKMM9OE
 ZONEID="`cat ${HOME}/.route53_zone_id`"
@@ -56,7 +56,7 @@ function _rotate() {
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LOGFILE="$DIR/update-route53.log"
 
-_logsize="`stat -f '%z' \"$LOGFILE\"`"
+_logsize="`stat -c '%s' \"$LOGFILE\"`"
 if [ $_logsize -gt 5242880 ]; then
     _rotate "$LOGFILE"
 fi
