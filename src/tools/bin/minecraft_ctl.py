@@ -9,7 +9,7 @@ import sys
 ORIG_MODE = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
 DEFAULTS = {
     'minecraft_ctl': {'launcher': '/Applications/Minecraft.app/Contents/MacOS/launcher', 'processes': ('java', 'minecraft')},
-    'diablo3_ctl': {'launcher': '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III', 'processes': ('Diablo',)},
+    'diablo3_ctl': {'launcher': '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III', 'processes': ('Diablo III',)},
     'docker_ctl': {'launcher': '/Applications/Docker.app/Contents/MacOS/Docker', 'processes': ('Docker',)},
     'firefox_ctl': {'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox', 'processes': ('firefox',), 'signal': '9'},
 }
@@ -55,7 +55,9 @@ def main(argv: list = sys.argv[1:]) -> int:
     elif cfg.command == 'status':
         f_mode = os.stat(cfg.launcher).st_mode & 0o777
         pids = list_instances(cfg.processes, verbose=cfg.verbose)
-        print('{}: {} ({})\n{}'.format(cfg.launcher, f_mode != 0, oct(f_mode), '\n  '.join(pids.values())))
+        print('{}: {} ({}), {}\n{}'.format(
+            cfg.launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running', '\n  '.join(pids.values())
+        ))
     else:
         print('Syntax:\n {} on|off|status\n({} provided)'.format(sys.argv[0], cfg.command))
     return 0
