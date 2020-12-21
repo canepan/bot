@@ -16,7 +16,10 @@ DEFAULTS = {
 
 
 def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
-    defaults = DEFAULTS[re.sub(r'\.py$', '', os.path.basename(prog_name))]
+    defaults = DEFAULTS.get(re.sub(r'\.py$', '', os.path.basename(prog_name)))
+    if not defaults:
+        print('Please, run this as one of {}'.format(', '.join(DEFAULTS.keys())))
+        return None
     p = argparse.ArgumentParser(
         description='App disabler', formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -45,8 +48,10 @@ def kill_all_instances(terms, signal=15) -> None:
         print('{} killed ({})'.format(pid, signal))
 
 
-def main(argv: list = sys.argv[1:]) -> int:
-    cfg = parse_args(argv)
+def main(argv: list = sys.argv[1:], prog_name : str = sys.argv[0]) -> int:
+    cfg = parse_args(argv, prog_name)
+    if not cfg:
+        return 1
     if cfg.command == 'on':
         os.chmod(cfg.launcher, ORIG_MODE)
     elif cfg.command == 'off':
