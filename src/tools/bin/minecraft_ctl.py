@@ -35,8 +35,6 @@ def list_instances(terms, verbose: bool = False) -> dict:
     ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
     pids = {}
     for line in ps_out.splitlines():
-        if verbose:
-            print('Looking for {} in {}'.format(terms, line))
         if all({t.lower() in line.lower() for t in terms}):
             pids[int(line.split()[1])] = line
     return pids
@@ -60,8 +58,10 @@ def main(argv: list = sys.argv[1:], prog_name : str = sys.argv[0]) -> int:
     elif cfg.command == 'status':
         f_mode = os.stat(cfg.launcher).st_mode & 0o777
         pids = list_instances(cfg.processes, verbose=cfg.verbose)
-        print('{}: {} ({}), {}\n{}'.format(
-            cfg.launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running', '\n  '.join(pids.values())
+        if cfg.verbose:
+            print('\n  '.join(pids.values()))
+        print('{}: {} ({}), {}'.format(
+            cfg.launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running'
         ))
     else:
         print('Syntax:\n {} on|off|status\n({} provided)'.format(sys.argv[0], cfg.command))
