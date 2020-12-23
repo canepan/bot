@@ -70,7 +70,7 @@ def test_kill_all_instances(mock_os_kill, mock_subprocess):
     ('minecraft_ctl.py', '/Applications/Minecraft.app/Contents/MacOS/launcher', ('java', 'minecraft'), 15),
     ('diablo3_ctl', '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III', ('Diablo III',), 15),
     ('docker_ctl', '/Applications/Docker.app/Contents/MacOS/Docker', ('Docker',), 15),
-    ('firefox_ctl', '/Applications/Firefox.app/Contents/MacOS/firefox', ('firefox',), 9)
+    ('firefox_ctl', '/Applications/Firefox.app/Contents/MacOS/firefox', ('Firefox',), 9)
 ))
 def test_parse_args(prog_name, launcher, processes, signal):
     cfg = parse_args(['on'], prog_name)
