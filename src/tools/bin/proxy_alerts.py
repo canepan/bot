@@ -11,10 +11,10 @@ def parse_args(argv: list) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description='Squid logs alerter', formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    p.add_argument('--client-ips', nargs='+', default=['192.168.19.137'])
-    p.add_argument('--log-file', default='/var/log/squid/access.log')
-    p.add_argument('--whitelist-file', default='/etc/squid/whitelist.txt')
-    p.add_argument('--breaches-file', default='/tmp/proxy_breaches.txt')
+    p.add_argument('--client-ips', '-i', nargs='+', default=['192.168.19.137'])
+    p.add_argument('--log-file', '-l', default='/var/log/squid/access.log')
+    p.add_argument('--whitelist-file', '-w', default='/etc/squid/whitelist.txt')
+    p.add_argument('--breaches-file', '-b', default='/tmp/proxy_breaches.txt')
     return p.parse_args(argv)
 
 
