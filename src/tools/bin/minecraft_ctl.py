@@ -11,11 +11,11 @@ ORIG_MODE = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_I
 DEFAULTS = {
     'minecraft_ctl': {
         'launcher': ['/Applications/Minecraft.app/Contents/MacOS/launcher', '/Applications/Lunar Client.app/Contents/MacOS/Lunar Client', '/Applications/Badlion Client.app/Contents/MacOS/Badlion Client'],
-        'processes': ('java.*mojang', 'minecraft[^_]', '[Ll]unar', 'Badlion')
+        'processes': ('java.*mojang', '[Mm]inecraft[^_]', '[Ll]unar', 'Badlion')
     },
     'diablo3_ctl': {'launcher': '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III', 'processes': ('Diablo III',)},
     'docker_ctl': {'launcher': '/Applications/Docker.app/Contents/MacOS/Docker', 'processes': ('Docker',)},
-    'firefox_ctl': {'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox', 'processes': ('firefox',), 'signal': '9'},
+    'firefox_ctl': {'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox', 'processes': ('[Ff]irefox',), 'signal': '9'},
 }
 
 
@@ -50,7 +50,7 @@ def list_instances(terms, verbose: bool = False) -> dict:
     ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
     pids = {}
     for line in ps_out.splitlines():
-        if any({re.search(t.lower(), line.lower()) for t in terms}):
+        if any({re.search(t, line) for t in terms}):
             pids[int(line.split()[1])] = line
     return pids
 
