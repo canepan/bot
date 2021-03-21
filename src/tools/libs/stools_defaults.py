@@ -2,6 +2,8 @@ import argparse
 import logging
 import socket
 import sys
+import typing
+from functools import lru_cache
 
 import attr
 
@@ -30,15 +32,27 @@ def parse_args(argv=None, descr='Sync local to remote files with the same name')
     return cfg
 
 
-def host_if_not_me(hosts: list) -> Host:
-    _myhn = socket.gethostname()
+@lru_cache(maxsize=5)
+def gethostbyname(hn: str = None) -> str:
+    if hn is None:
+        hn = socket.gethostname()
+    return socket.gethostbyname(hn)
+
+
+def ip_if_not_local(host: str) -> typing.Optional[str]:
+    """ return the resolved IP if it's not the local IP """
+    _ip = gethostbyname(host)
+    if _ip != hethostbyname():
+        return _ip
+
+
+def host_if_not_me(hosts: list) -> typing.List[Host]:
     _log.debug('Resolving {}'.format(_myhn))
-    _myip = socket.gethostbyname(_myhn)
     for _hn in [oh for oh in hosts if oh != _myhn]:
         _log.debug('Resolving {}'.format(_hn))
         try:
-            _ip = socket.gethostbyname(_hn)
-            if _ip != _myip:
+            _ip = gethostbyname(_hn)
+            if _ip:
                 yield Host(_hn, _ip)
         except socket.gaierror as e:
-                print('Error resolving {}: {}'.format(_hn, e))
+            print('Error resolving {}: {}'.format(_hn, e))

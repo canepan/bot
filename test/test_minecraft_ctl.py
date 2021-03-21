@@ -4,9 +4,15 @@ import pytest
 from tools.bin.minecraft_ctl import kill_all_instances, list_instances, main, parse_args
 
 
+def chmod(*args):
+    if not isinstance(args[0], str):
+        raise TypeError('Mock chmod {}'.format(args))
+
+
 @pytest.fixture
 def mock_os_chmod(monkeypatch):
     mock_os_chmod = mock.MagicMock(name='chmod')
+    mock_os_chmod.side_effect = chmod
     monkeypatch.setattr('tools.bin.minecraft_ctl.os.chmod', mock_os_chmod)
     yield mock_os_chmod
 
@@ -60,22 +66,22 @@ def test_list_instances_not_found(mock_subprocess):
 
 
 def test_kill_all_instances(mock_os_kill, mock_subprocess):
-    kill_all_instances(['process name'], signal=12)
+    kill_all_instances(['process name'], signal=12, pretend=False)
     mock_os_kill.assert_called_with(42, 12)
-    kill_all_instances(['ReportCrash agent'])
+    kill_all_instances(['ReportCrash agent'], signal=15, pretend=False)
     mock_os_kill.assert_called_with(6117, 15)
 
 
 @pytest.mark.parametrize('prog_name,launcher,processes,signal', (
-    ('minecraft_ctl.py', '/Applications/Minecraft.app/Contents/MacOS/launcher', ('java', 'minecraft'), 15),
+    ('minecraft_ctl.py', '/Applications/Minecraft.app/Contents/MacOS/launcher', ('java.*mojang', '[Mm]inecraft[^_]', '[Ll]unar', 'Badlion'), 15),
     ('diablo3_ctl', '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III', ('Diablo III',), 15),
     ('docker_ctl', '/Applications/Docker.app/Contents/MacOS/Docker', ('Docker',), 15),
-    ('firefox_ctl', '/Applications/Firefox.app/Contents/MacOS/firefox', ('Firefox',), 9)
+    ('firefox_ctl', '/Applications/Firefox.app/Contents/MacOS/firefox', ('[Ff]irefox',), 9)
 ))
 def test_parse_args(prog_name, launcher, processes, signal):
     cfg = parse_args(['on'], prog_name)
     assert cfg.command == 'on'
-    assert cfg.launcher == launcher
+    assert launcher in cfg.launcher
     assert cfg.processes == processes
     assert cfg.kill_signal == signal
     assert not cfg.verbose
@@ -89,4 +95,4 @@ def test_parse_args_exc():
 def test_main_on(mock_os_chmod):
     main(['on'], prog_name='minecraft_ctl')
     print(mock_os_chmod.mock_calls)
-    mock_os_chmod.assert_called_with('/Applications/Minecraft.app/Contents/MacOS/launcher', 0o755)
+    mock_os_chmod.assert_has_calls([mock.call('/Applications/Minecraft.app/Contents/MacOS/launcher', 0o755)])

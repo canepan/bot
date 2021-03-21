@@ -17,9 +17,11 @@ DEFAULTS = {
     'docker_ctl': {'launcher': '/Applications/Docker.app/Contents/MacOS/Docker', 'processes': ('Docker',)},
     'firefox_ctl': {'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox', 'processes': ('[Ff]irefox',), 'signal': '9'},
 }
+_log = logging.getLogger(__name__)
 
 
 def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
+    global _log
     defaults = DEFAULTS.get(re.sub(r'\.py$', '', os.path.basename(prog_name)))
     if not defaults:
         print('Please, run this as one of {}'.format(', '.join(DEFAULTS.keys())))
@@ -43,6 +45,7 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
         cfg.log.setLevel('INFO')
     if cfg.verbose:
         cfg.log.setLevel('DEBUG')
+    _log = cfg.log
     return cfg
 
 
@@ -55,12 +58,12 @@ def list_instances(terms, verbose: bool = False) -> dict:
     return pids
 
 
-def kill_all_instances(terms: list, signal: int, log: logging.Logger, pretend: bool) -> None:
+def kill_all_instances(terms: list, signal: int, pretend: bool) -> None:
     for pid, cmdline in list_instances(terms).items():
-        log.debug('Found {}: signaling {}'.format(cmdline, signal))
+        _log.debug('Found {}: signaling {}'.format(cmdline, signal))
         if not pretend:
             os.kill(pid, signal)
-        log.info('{} killed ({})'.format(pid, signal))
+        _log.info('{} killed ({})'.format(pid, signal))
 
 
 def change_perms(executable, perms: int, pretend: bool):
@@ -103,7 +106,7 @@ def main(argv: list = sys.argv[1:], prog_name : str = sys.argv[0]) -> int:
         enable(cfg.launcher, cfg.pretend)
     elif cfg.command == 'off':
         disable(cfg.launcher, cfg.pretend)
-        kill_all_instances(cfg.processes, cfg.kill_signal, cfg.log, cfg.pretend)
+        kill_all_instances(cfg.processes, cfg.kill_signal, cfg.pretend)
     elif cfg.command == 'status':
         f_modes = stat_files(cfg.launcher)
         pids = list_instances(cfg.processes, verbose=cfg.verbose)
