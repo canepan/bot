@@ -36,6 +36,7 @@ setuptools.setup(
             "sdiff.py = tools.bin.sdiff:main",
             "slapd_log = tools.bin.slapd_log:main",
             "ssync.py = tools.bin.ssync:main",
+            "total_block = tools.bin.total_block:main",
         ],
     }
 )
