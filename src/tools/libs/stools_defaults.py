@@ -21,9 +21,7 @@ class Host(object):
     ip = attr.ib(type=str)
 
 
-def parse_args(argv=None, descr='Sync local to remote files with the same name') -> argparse.Namespace:
-    if argv is None:
-        argv = sys.argv[1:]
+def parse_args(argv=sys.argv[1:], descr='Sync local to remote files with the same name') -> argparse.Namespace:
     parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('--diff', '-d', default='diff -buB', help='Command (with params) to use for diff')
     parser.add_argument('--hosts', '-H', nargs='+', default=HOSTS)
@@ -33,16 +31,15 @@ def parse_args(argv=None, descr='Sync local to remote files with the same name')
 
 
 @lru_cache(maxsize=5)
-def gethostbyname(hn: str = None) -> str:
-    if hn is None:
-        hn = socket.gethostname()
+def gethostbyname(hn: str) -> str:
     return socket.gethostbyname(hn)
 
 
 def ip_if_not_local(host: str) -> typing.Optional[str]:
     """ return the resolved IP if it's not the local IP """
     _ip = gethostbyname(host)
-    if _ip != hethostbyname():
+    my_host = socket.gethostname()
+    if my_host != host and _ip != gethostbyname(my_host):
         return _ip
 
 

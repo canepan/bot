@@ -94,5 +94,4 @@ def test_parse_args_exc():
 
 def test_main_on(mock_os_chmod):
     main(['on'], prog_name='minecraft_ctl')
-    print(mock_os_chmod.mock_calls)
     mock_os_chmod.assert_has_calls([mock.call('/Applications/Minecraft.app/Contents/MacOS/launcher', 0o755)])

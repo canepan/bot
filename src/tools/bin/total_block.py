@@ -1,39 +1,54 @@
 #!/mnt/opt/nicola/tools/bin/python3
 import attr
 import argparse
+import getpass
 import json
 import logging
 import os
 import subprocess
 import sys
+import typing
 
 if os.path.abspath(os.path.dirname(os.path.dirname(__file__))) not in sys.path:
     sys.path.insert(1, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-from libs.parse_args import LoggingArgumentParser
-from libs.stools_defaults import host_if_not_me
+from tools.libs.parse_args import LoggingArgumentParser
+from tools.libs.total_block_config import config
+from tools.libs.stools_defaults import ip_if_not_local
 
 APP_NAME = 'LockDown'
 
 
-def parse_args(argv: list, descr: str = 'Create e2g configuration') -> argparse.Namespace:
+def parse_args(argv: list, descr: str = 'Manage internet lockdown') -> argparse.Namespace:
     global log
     parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('command', help='on or off', choices=('on', 'off'))
-    parser.add_argument('--unsafe', action='store_true', help='Really write/rename files')
+    parser.add_argument('--unsafe', action='store_true', help='Really run commands')
     cfg =  parser.parse_args(argv)
     cfg_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    cfg.config = os.path.join(cfg_dir, f'total_block_{cfg.command}.cfg')
+    cfg.config = config[cfg.command]
 
     log = cfg.log
     return cfg
 
 
+def user_if_not_me(user) -> typing.Optional[str]:
+    if user != getpass.getuser():
+        return user
+
+
 def run(host_user, cmd, unsafe):
     user, host = host_user.split('@')
-    if unsafe:
-        subprocess.run(['ssh', host_user, cmd])
+    if ip_if_not_local(host):
+        full_cmd = ['ssh', host_user, cmd]
+    elif user_if_not_me(user):
+        full_cmd = ['sudo', '-u', user, cmd]
     else:
-        log.info(f'"{cmd}" on {host} (as {user})')
+        full_cmd = [cmd]
+    if unsafe:
+        subprocess.run(full_cmd)
+    else:
+        full_cmd = '" "'.join(full_cmd)
+        log.info(f'"{cmd}" on {host} (as {user}): "{full_cmd}"')
 
 
 def is_valid(line: str) -> bool:
@@ -43,10 +58,8 @@ def is_valid(line: str) -> bool:
 def main(argv=sys.argv[1:]):
     cfg = parse_args(argv)
     cfg.log.info('Lock down %s initiated', cfg.command)
-    with open(cfg.config, 'r') as f:
-        for line in [valid_line.strip() for valid line in f if is_valid(valid_line)]:
-            host_user, cmd = line.split(':')
-            run(host_user, cmd, cfg.unsafe)
+    for host_user, cmd in cfg.config:
+        run(host_user, cmd, cfg.unsafe)
     return 0
 
 
