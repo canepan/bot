@@ -17,8 +17,9 @@ def main(argv: list = sys.argv[1:]):
         for _fn in args.filenames:
             try:
                 result = subprocess.check_output(
-                    'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; '
-                    'exit 0'.format(_host.hostname, _fn, args.diff), stderr=subprocess.STDOUT, shell=True
+                    'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; ' 'exit 0'.format(_host.hostname, _fn, args.diff),
+                    stderr=subprocess.STDOUT,
+                    shell=True,
                 )
                 if result.decode():
                     args.log.info('Diff between local and {}:{}'.format(_host.hostname, _fn))

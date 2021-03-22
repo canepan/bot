@@ -18,8 +18,7 @@ _log = logging.getLogger(APP_NAME)
 
 def parse_args(argv) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description='Update Afraid FreeDNS record(s)',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description='Update Afraid FreeDNS record(s)', formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument('service', choices=['homenet', 'undo'])
     parser.add_argument('--unsafe', action='store_true', help='Really write/rename files')
@@ -31,7 +30,7 @@ def sleep(sleep_time: int = SLEEP_TIME, unsafe: bool = False):
         time.sleep(sleep_time)
 
 
-def update_afraid(afraid_key: str, unsafe: bool = False, _log:logging.Logger = _log) -> bool:
+def update_afraid(afraid_key: str, unsafe: bool = False, _log: logging.Logger = _log) -> bool:
     """:returns: True if the record was changed, False otherwise"""
     sleep(unsafe=unsafe)
     full_url = "http://sync.afraid.org/u/{}".format(afraid_key)
@@ -59,7 +58,7 @@ def main(argv=sys.argv[1:]):
             else:
                 cfg.log.debug('homenet untouched')
                 return 1
-                
+
             # >> /tmp/freedns_canne_homenet_org.log 2>&1
         if cfg.service == 'undo':
             # changed 9 Dec 2019

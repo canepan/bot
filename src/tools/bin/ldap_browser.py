@@ -75,6 +75,7 @@ class ProcessDict(ItemProcessor):
                 lines.append(f'{self.indent * "  "}{k}:{pv}')
         return lines
 
+
 class ProcessBString(ItemProcessor):
     exceptions = (AttributeError, UnicodeDecodeError)
 
@@ -153,9 +154,14 @@ class LdapBrowser(object):
         return self.__ldap
 
     def search(self, filterstr, *args, **kwargs):
-        _log.debug('Query: ldapsearch -b %s -D %s -y %s %s %s',
-                   self._base_dn, self._bind_dn, self.pass_file,
-                   filterstr, ' '.join(kwargs.get('attrlist') or []))
+        _log.debug(
+            'Query: ldapsearch -b %s -D %s -y %s %s %s',
+            self._base_dn,
+            self._bind_dn,
+            self.pass_file,
+            filterstr,
+            ' '.join(kwargs.get('attrlist') or []),
+        )
         ldap_result = self._ldap.search_st(
             *args, base=self._base_dn, filterstr=filterstr, scope=ldap.SCOPE_SUBTREE, timeout=3, **kwargs
         )
@@ -178,6 +184,7 @@ class LdapBrowser(object):
             else:
                 break
         return '\n'.join(lines)
+
 
 def compact_dict(orig_dict):
     # dict
@@ -223,7 +230,7 @@ def main(argv=sys.argv[1:]):
         'verbose': cfg.verbose,
     }
     if cfg.filterstr == 'AccessLists':
-        args['config_suffix'] =  'CONFIG'
+        args['config_suffix'] = 'CONFIG'
         search_args = {'filterstr': 'olcAccess=*', 'attrlist': ['olcAccess']}
     else:
         search_args = {'filterstr': cfg.filterstr, 'attrlist': cfg.ldap_attrs}

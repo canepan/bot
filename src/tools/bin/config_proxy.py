@@ -26,7 +26,10 @@ def parse_args(argv: list, descr: str = 'Create e2g configuration') -> argparse.
     parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('--categories', nargs='+', default=['adult', 'games'], help='Categories to ban')
     parser.add_argument(
-        '--filter-types', nargs='+', default=['banned', 'weighted'], help='Filter types: sitelist, urllist will be appended'
+        '--filter-types',
+        nargs='+',
+        default=['banned', 'weighted'],
+        help='Filter types: sitelist, urllist will be appended',
     )
     parser.add_argument(
         '--rules-dir', '-r', default='kids', help='Directory with the rules files (relative to {})'.format(ETC_E2_DIR)
@@ -50,7 +53,9 @@ class Category(object):
     category_name = attr.ib()
 
     def _list_file(self, category_type: str):
-        return f'{ETC_E2_DIR}/lists/{self.list_map[category_type]}/{self.category_name}/{self.category_map[category_type]}'
+        return (
+            f'{ETC_E2_DIR}/lists/{self.list_map[category_type]}/{self.category_name}/{self.category_map[category_type]}'
+        )
 
     def exists(self, *category_types):
         if not category_types:
@@ -60,14 +65,15 @@ class Category(object):
 
 @attr.s
 class E2Category(Category):
-    '''
+    """
     An E2 config is made of:
     * e2configfX.conf (contains references to content filtering files, i.e. bannedXXX/weightedXXX)
     * each bannedXXX/weightedXXX file contains references to the blocked category files
     * the content filtering filename is made of blacklists/<category>/<list_type> or phraselists/<category>/<list_type>:
       - <category> can be adult, games, etc
       - list_type is either domains, urls or weighted
-    '''
+    """
+
     FILE_HEADER = {
         'sitelist': '.Include</etc/e2guardian/kids/bannedtimes>\n',
         'urllist': '.Include</etc/e2guardian/kids/bannedtimes>\n',
@@ -93,14 +99,15 @@ class E2Category(Category):
 
 @attr.s
 class SGCategory(Category):
-    '''
+    """
     A SquidGuard config is made of:
     * squidguard.conf (contains stanzas for content filtering categories, i.e. games, adult, etc (custom names)
     * each stanza contains references to the blocked content filtering files
     * the content filtering filename is made of blacklists/<category>/<list_type>:
       - <category> can be adult, games, etc
       - list_type is either domains, urls or expressions
-    '''
+    """
+
     FILE_HEADER = '''
 # Caution: do NOT use comments inside { }
 
@@ -151,16 +158,18 @@ def replace_if_changed(rules_file: str, new_config: str, unsafe: bool) -> int:
     current_config = file_content(rules_file)
     if new_config.strip().replace('\t', ' ') != current_config.strip().replace('\t', ' '):
         _log.info('"%s" differs: replacing', rules_file)
-        _log.debug('Full difference:\n%s', text_utils.CompareContents(
-            current_config, new_config,
-            old_file_name=f'current {rules_file}', new_file_name=f'proposed {rules_file}'
-        ))
+        _log.debug(
+            'Full difference:\n%s',
+            text_utils.CompareContents(
+                current_config,
+                new_config,
+                old_file_name=f'current {rules_file}',
+                new_file_name=f'proposed {rules_file}',
+            ),
+        )
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         if unsafe:
-            _log.info(
-                'Renaming %s to %s', rules_file,
-                '{}.{}'.format(rules_file, timestamp)
-            )
+            _log.info('Renaming %s to %s', rules_file, '{}.{}'.format(rules_file, timestamp))
             os.rename(rules_file, '{}.{}'.format(rules_file, timestamp))
             with open(rules_file, 'w') as f:
                 _log.info('Writing new %s', rules_file)
@@ -182,7 +191,8 @@ def configure_squidguard(cfg):
         SGCategory.FILE_HEADER,
         '\n'.join([category.stanza() for category in valid_categories]),
         SGCategory.FILE_FOOTER.replace(
-            '<blocked_list>', " !".join(([''] if valid_categories else []) + [category.category_name for category in valid_categories])
+            '<blocked_list>',
+            " !".join(([''] if valid_categories else []) + [category.category_name for category in valid_categories]),
         ),
     )
     config_file = ETC_SG_FILE
@@ -194,7 +204,9 @@ def configure_e2guardian(cfg):
     categories = [E2Category(c) for c in cfg.categories]
     changed_files = 0
     for ft in cfg.filter_types:
-        for ctype in (c for c in ('sitelist', 'urllist', 'phraselist') if E2Category.filter_exists(ft, c, cfg.rules_dir)):
+        for ctype in (
+            c for c in ('sitelist', 'urllist', 'phraselist') if E2Category.filter_exists(ft, c, cfg.rules_dir)
+        ):
             new_config = '{}{}{}'.format(
                 E2Category.FILE_HEADER[ctype],
                 '\n'.join([category.line(ctype) for category in categories if category.exists(ctype)]),

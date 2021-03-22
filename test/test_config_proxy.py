@@ -18,7 +18,7 @@ def test_parse_args_defaults():
 
 def test_parse_args_conflicting():
     with pytest.raises(SystemExit):
-        cfg = config_proxy.parse_args(['-v', '-q', 'other', 'that'])
+        config_proxy.parse_args(['-v', '-q', 'other', 'that'])
 
 
 def test_parse_args_verbose():
@@ -32,8 +32,7 @@ def test_parse_args_verbose():
 def test_parse_args_quiet():
     cfg = config_proxy.parse_args(['-q'])
     assert cfg.quiet is True
-    record = logging.LogRecord('name', logging.INFO, '/', 0, 'test', [], None)
-    print(cfg.log.handlers)
+    logging.LogRecord('name', logging.INFO, '/', 0, 'test', [], None)
     # this doesn't work after adding support for logfile
     # for handler in cfg.log.handlers:
     #     print('{}: {}'.format(handler, handler.name))
@@ -42,4 +41,3 @@ def test_parse_args_quiet():
     #     assert handler.filter(record)
     for handler in [h for h in cfg.log.handlers if h.get_name() in ('stderr', 'stdout')]:
         cfg.log.removeHandler(handler)
-

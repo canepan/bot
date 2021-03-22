@@ -17,4 +17,6 @@ class CompareContents(object):
         _log.debug('CompareContent inited')
 
     def __repr__(self):
-        return '\n'.join(difflib.unified_diff(self.old_content.splitlines(), self.new_content.splitlines(), n=1, **self.extra_args))
+        return '\n'.join(
+            difflib.unified_diff(self.old_content.splitlines(), self.new_content.splitlines(), n=1, **self.extra_args)
+        )

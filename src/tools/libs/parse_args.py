@@ -21,8 +21,7 @@ class LoggingArgumentParser(configargparse.ArgumentParser):
 
 def arg_parser(description: str) -> configargparse.ArgumentParser:
     parser = configargparse.ArgumentParser(
-        description=description,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     return parser
 
@@ -46,4 +45,3 @@ def with_quiet_verbose(
         app_name, verbose=cfg.verbose, quiet=cfg.quiet, with_file=logfile.format(**cfg.__dict__)
     )
     return cfg
-

@@ -23,7 +23,7 @@ def parse_args(argv: list, descr: str = 'Manage internet lockdown') -> argparse.
     parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('command', help='on or off', choices=('on', 'off'))
     parser.add_argument('--unsafe', action='store_true', help='Really run commands')
-    cfg =  parser.parse_args(argv)
+    cfg = parser.parse_args(argv)
     cfg_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     cfg.config = config[cfg.command]
 

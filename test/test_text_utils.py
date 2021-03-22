@@ -12,13 +12,13 @@ def difflib(monkeypatch):
 
 
 def test_CompareContents(difflib):
-    cc = CompareContents('myold\line 2', 'mynew\line 2')
+    cc = CompareContents('myold\\line 2', 'mynew\\line 2')
     print(cc)
     difflib.unified_diff.assert_called_with(['myold\\line 2'], ['mynew\\line 2'], n=1)
 
 
 def test_CompareContents_filenames(difflib):
-    cc = CompareContents('myold\line 2', 'mynew\line 2', 'oldfile', 'newfile')
+    cc = CompareContents('myold\\line 2', 'mynew\\line 2', 'oldfile', 'newfile')
     print(cc)
     print(difflib.mock_calls)
     difflib.unified_diff.assert_called_with(

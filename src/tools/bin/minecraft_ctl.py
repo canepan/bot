@@ -10,12 +10,23 @@ import sys
 ORIG_MODE = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
 DEFAULTS = {
     'minecraft_ctl': {
-        'launcher': ['/Applications/Minecraft.app/Contents/MacOS/launcher', '/Applications/Lunar Client.app/Contents/MacOS/Lunar Client', '/Applications/Badlion Client.app/Contents/MacOS/Badlion Client'],
-        'processes': ('java.*mojang', '[Mm]inecraft[^_]', '[Ll]unar', 'Badlion')
+        'launcher': [
+            '/Applications/Minecraft.app/Contents/MacOS/launcher',
+            '/Applications/Lunar Client.app/Contents/MacOS/Lunar Client',
+            '/Applications/Badlion Client.app/Contents/MacOS/Badlion Client',
+        ],
+        'processes': ('java.*mojang', '[Mm]inecraft[^_]', '[Ll]unar', 'Badlion'),
     },
-    'diablo3_ctl': {'launcher': '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III', 'processes': ('Diablo III',)},
+    'diablo3_ctl': {
+        'launcher': '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III',
+        'processes': ('Diablo III',),
+    },
     'docker_ctl': {'launcher': '/Applications/Docker.app/Contents/MacOS/Docker', 'processes': ('Docker',)},
-    'firefox_ctl': {'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox', 'processes': ('[Ff]irefox',), 'signal': '9'},
+    'firefox_ctl': {
+        'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox',
+        'processes': ('[Ff]irefox',),
+        'signal': '9',
+    },
 }
 _log = logging.getLogger(__name__)
 
@@ -26,9 +37,7 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
     if not defaults:
         print('Please, run this as one of {}'.format(', '.join(DEFAULTS.keys())))
         return None
-    p = argparse.ArgumentParser(
-        description='App disabler', formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    p = argparse.ArgumentParser(description='App disabler', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument('command', choices=('on', 'off', 'status'))
     p.add_argument('--launcher', '-l', default=defaults['launcher'])
     p.add_argument('--processes', '-p', nargs='+', default=defaults['processes'])
@@ -98,7 +107,7 @@ def stat_files(file_names):
         return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
 
 
-def main(argv: list = sys.argv[1:], prog_name : str = sys.argv[0]) -> int:
+def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
     cfg = parse_args(argv, prog_name)
     if not cfg:
         return 1
@@ -113,9 +122,11 @@ def main(argv: list = sys.argv[1:], prog_name : str = sys.argv[0]) -> int:
         if cfg.verbose:
             print('\n  '.join(pids.values()))
         for launcher, f_mode in f_modes.items():
-            print('{}: {} ({}), {}'.format(
-                launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running'
-            ))
+            print(
+                '{}: {} ({}), {}'.format(
+                    launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running'
+                )
+            )
     else:
         print('Syntax:\n {} on|off|status\n({} provided)'.format(sys.argv[0], cfg.command))
     return 0

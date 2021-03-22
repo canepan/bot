@@ -85,7 +85,7 @@ class LdapLog(object):
         if parts[1] == '<=':
             return
         flow_dict = self.data[' '.join(parts[0:2])]
-#        flow_dict = self.data[parts[0]]
+        #        flow_dict = self.data[parts[0]]
         flow_dict.parse_parts(parts)
 
     def __str__(self):
