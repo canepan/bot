@@ -19,7 +19,12 @@ setuptools.setup(
     packages=setuptools.find_packages('src', exclude=['.tox', 'test']),
     package_dir={"": "src"},
     data_files=data_files,
-    install_requires=['attrs', 'python-ldap', 'typing', 'ConfigArgParse'],
+    install_requires=[
+        'attrs',
+        'python-ldap',
+        'typing;python_version<"3.7"',
+        'ConfigArgParse'
+    ],
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
