@@ -27,6 +27,7 @@ DEFAULTS = {
         'processes': ('[Ff]irefox',),
         'signal': '9',
     },
+    'torbrowser_ctl': {'launcher': '/Applications/Tor Browser.app/Contents/MacOS/firefox', 'processes': ('Tor.*Browser.*[Ff]irefox',), 'signal': '9'},
 }
 _log = logging.getLogger(__name__)
 
