@@ -43,8 +43,10 @@ def run(host_user, cmd, unsafe):
     elif user_if_not_me(user):
         full_cmd = ['sudo', '-u', user, cmd]
     else:
-        full_cmd = [cmd]
+        full_cmd = ['bash', '-c', cmd]
     if unsafe:
+        glue = '" "'
+        log.debug(f'Running {glue.join(full_cmd)}')
         subprocess.run(full_cmd)
     else:
         full_cmd = '" "'.join(full_cmd)
