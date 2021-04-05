@@ -1,5 +1,6 @@
 #!/Volumes/MoviablesX/VMs/tools/bin/python
 import argparse
+import attr
 import logging
 import os
 import re
@@ -16,6 +17,8 @@ DEFAULTS = {
             '/Applications/Badlion Client.app/Contents/MacOS/Badlion Client',
         ],
         'processes': ('java.*mojang', '[Mm]inecraft[^_]', '[Ll]unar', 'Badlion'),
+        'firewall': (10, 11),
+        'signal': '9',
     },
     'diablo3_ctl': {
         'launcher': '/Volumes/MoviablesX/Mac/Diablo III/Diablo III.app/Contents/MacOS/Diablo III',
@@ -27,13 +30,15 @@ DEFAULTS = {
         'processes': ('[Ff]irefox',),
         'signal': '9',
     },
-    'torbrowser_ctl': {'launcher': '/Applications/Tor Browser.app/Contents/MacOS/firefox', 'processes': ('Tor.*Browser.*[Ff]irefox',), 'signal': '9'},
+    'torbrowser_ctl': {
+        'launcher': '/Applications/Tor Browser.app/Contents/MacOS/firefox',
+        'processes': ('Tor.*Browser.*[Ff]irefox',),
+        'signal': '9',
+    },
 }
-_log = logging.getLogger(__name__)
 
 
 def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
-    global _log
     defaults = DEFAULTS.get(re.sub(r'\.py$', '', os.path.basename(prog_name)))
     if not defaults:
         print('Please, run this as one of {}'.format(', '.join(DEFAULTS.keys())))
@@ -43,6 +48,7 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
     p.add_argument('--launcher', '-l', default=defaults['launcher'])
     p.add_argument('--processes', '-p', nargs='+', default=defaults['processes'])
     p.add_argument('--kill-signal', '-k', type=int, default=defaults.get('signal', '15'))
+    p.add_argument('--firewall', '-f', type=list, default=defaults.get('firewall', ()))
     p.add_argument('--pretend', '-P', action='store_true')
     p.add_argument('--quiet', '-q', action='store_true')
     p.add_argument('--verbose', '-v', action='store_true')
@@ -55,8 +61,47 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
         cfg.log.setLevel('INFO')
     if cfg.verbose:
         cfg.log.setLevel('DEBUG')
-    _log = cfg.log
     return cfg
+
+
+@attr.s
+class FirewallManager(object):
+    rules = attr.ib()
+    pretend = attr.ib(default=True)
+
+    def allow(self):
+        command = ['ssh', 'admin@mt', f'/ip firewall address-list disable numbers={self.rules}']
+        if self.pretend:
+            return f'Would execute {command}'
+        return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
+
+    def deny(self):
+        command = ['ssh', 'admin@mt', f'/ip firewall address-list enable numbers={self.rules}']
+        if self.pretend:
+            return f'Would execute {command}'
+        return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
+
+    def status(self):
+        output = subprocess.check_output(
+            ['ssh', 'admin@mt', f'/ip firewall address-list print'], stderr=subprocess.PIPE
+        ).decode('utf-8')
+        return self.findrules(output)
+
+    def findrules(self, output):
+        rules_lines = []
+        found = False
+        for line in output.splitlines():
+            fields = line.split()
+            if found:
+                found = False
+                rules_lines.append(line)
+            try:
+                if fields and int((fields[0])) in self.rules:
+                    found = True
+                    rules_lines.append(line)
+            except ValueError:
+                pass
+        return '\n'.join(rules_lines)
 
 
 def list_instances(terms, verbose: bool = False) -> dict:
@@ -68,12 +113,12 @@ def list_instances(terms, verbose: bool = False) -> dict:
     return pids
 
 
-def kill_all_instances(terms: list, signal: int, pretend: bool) -> None:
+def kill_all_instances(terms: list, signal: int, log: logging.Logger, pretend: bool) -> None:
     for pid, cmdline in list_instances(terms).items():
-        _log.debug('Found {}: signaling {}'.format(cmdline, signal))
+        log.debug('Found {}: signaling {}'.format(cmdline, signal))
         if not pretend:
             os.kill(pid, signal)
-        _log.info('{} killed ({})'.format(pid, signal))
+        log.info('{} killed ({})'.format(pid, signal))
 
 
 def change_perms(executable, perms: int, pretend: bool):
@@ -88,8 +133,11 @@ def change_perms(executable, perms: int, pretend: bool):
             for ex in executable:
                 print('Would change {} to {}'.format(ex, perms))
         else:
-            for ex in executable:
-                os.chmod(ex, perms)
+            for ex_path in executable:
+                try:
+                    os.chmod(ex_path, perms)
+                except FileNotFoundError as fnfe:
+                    print(fnfe)
 
 
 def enable(executable, pretend: bool):
@@ -105,18 +153,31 @@ def stat_files(file_names):
         f_mode = os.stat(file_names).st_mode & 0o777
         return {file_names: f_mode}
     except TypeError:
-        return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
+        # return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
+        result = {}
+        for file_name in file_names:
+            try:
+                result[file_name] = os.stat(file_name).st_mode & 0o777
+            except FileNotFoundError as fnfe:
+                print(fnfe)
+        return result
 
 
 def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
     cfg = parse_args(argv, prog_name)
     if not cfg:
         return 1
+    if cfg.firewall:
+        firewall = FirewallManager(cfg.firewall, cfg.pretend)
     if cfg.command == 'on':
+        if cfg.firewall:
+            print(firewall.allow())
         enable(cfg.launcher, cfg.pretend)
     elif cfg.command == 'off':
         disable(cfg.launcher, cfg.pretend)
-        kill_all_instances(cfg.processes, cfg.kill_signal, cfg.pretend)
+        kill_all_instances(cfg.processes, cfg.kill_signal, cfg.log, cfg.pretend)
+        if cfg.firewall:
+            print(firewall.deny())
     elif cfg.command == 'status':
         f_modes = stat_files(cfg.launcher)
         pids = list_instances(cfg.processes, verbose=cfg.verbose)
@@ -128,6 +189,8 @@ def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
                     launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running'
                 )
             )
+        if cfg.firewall:
+            print(firewall.status())
     else:
         print('Syntax:\n {} on|off|status\n({} provided)'.format(sys.argv[0], cfg.command))
     return 0
