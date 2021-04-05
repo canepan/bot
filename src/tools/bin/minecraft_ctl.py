@@ -28,7 +28,7 @@ DEFAULTS = {
     'docker_ctl': {'launcher': '/Applications/Docker.app/Contents/MacOS/Docker', 'processes': ('Docker',)},
     'firefox_ctl': {
         'launcher': '/Applications/Firefox.app/Contents/MacOS/firefox',
-        'processes': ('[Ff]irefox',),
+        'processes': (r'Firefox\.app.*firefox',),
         'signal': '9',
     },
     'torbrowser_ctl': {
@@ -152,14 +152,13 @@ class PermsManager(object):
     def disable(self):
         self.change_perms(0)
 
-    def stat_files(self, file_names: TFileNames):
+    def stat_files(self) -> dict:
         try:
-            f_mode = os.stat(file_names).st_mode & 0o777
+            f_mode = os.stat(self.executable).st_mode & 0o777
             return {file_names: f_mode}
         except TypeError:
-            # return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
             result = {}
-            for file_name in file_names:
+            for file_name in self.executable:
                 try:
                     result[file_name] = os.stat(file_name).st_mode & 0o777
                 except FileNotFoundError as fnfe:
@@ -185,7 +184,7 @@ def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
         if cfg.firewall:
             print(firewall.deny())
     elif cfg.command == 'status':
-        f_modes = perms_mgr.stat_files(cfg.launcher)
+        f_modes = perms_mgr.stat_files()
         pids = proc_mgr.list_instances(verbose=cfg.verbose)
         if cfg.verbose:
             print('\n  '.join(pids.values()))

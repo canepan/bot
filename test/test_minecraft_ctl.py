@@ -92,7 +92,7 @@ def test_kill_all_instances(mock_os_kill, mock_subprocess, mock_log):
     'prog_name,launcher,processes,signal',
     (
         ('docker_ctl', '/Applications/Docker.app/Contents/MacOS/Docker', ('Docker',), 15),
-        ('firefox_ctl', '/Applications/Firefox.app/Contents/MacOS/firefox', ('[Ff]irefox',), 9),
+        ('firefox_ctl', '/Applications/Firefox.app/Contents/MacOS/firefox', (r'Firefox\.app.*firefox',), 9),
     ),
 )
 def test_parse_args(prog_name, launcher, processes, signal):
