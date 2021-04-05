@@ -7,6 +7,7 @@ import re
 import stat
 import subprocess
 import sys
+import typing
 
 ORIG_MODE = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
 DEFAULTS = {
@@ -66,7 +67,7 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
 
 @attr.s
 class FirewallManager(object):
-    rules = attr.ib()
+    rules: tuple = attr.ib()
     pretend = attr.ib(default=True)
 
     def allow(self):
@@ -75,11 +76,6 @@ class FirewallManager(object):
             return f'Would execute {command}'
         return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
 
-    def deny(self):
-        command = ['ssh', 'admin@mt', f'/ip firewall address-list enable numbers={self.rules}']
-        if self.pretend:
-            return f'Would execute {command}'
-        return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
 
     def status(self):
         output = subprocess.check_output(
@@ -104,63 +100,71 @@ class FirewallManager(object):
         return '\n'.join(rules_lines)
 
 
-def list_instances(terms, verbose: bool = False) -> dict:
-    ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
-    pids = {}
-    for line in ps_out.splitlines():
-        if any({re.search(t, line) for t in terms}):
-            pids[int(line.split()[1])] = line
-    return pids
+@attr.s
+class ProcessManager(object):
+    terms: typing.List[typing.Pattern] = attr.ib()
+    log: logging.Logger = attr.ib()
+
+    def list_instances(self, verbose: bool = False) -> dict:
+        ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
+        pids = {}
+        for line in ps_out.splitlines():
+            if any({re.search(t, line) for t in self.terms}):
+                pids[int(line.split()[1])] = line
+        return pids
+
+    def kill_all_instances(self, signal: int, pretend: bool) -> None:
+        for pid, cmdline in self.list_instances(self.terms).items():
+            self.log.debug('Found {}: signaling {}'.format(cmdline, signal))
+            if not pretend:
+                os.kill(pid, signal)
+            self.log.info('{} killed ({})'.format(pid, signal))
 
 
-def kill_all_instances(terms: list, signal: int, log: logging.Logger, pretend: bool) -> None:
-    for pid, cmdline in list_instances(terms).items():
-        log.debug('Found {}: signaling {}'.format(cmdline, signal))
-        if not pretend:
-            os.kill(pid, signal)
-        log.info('{} killed ({})'.format(pid, signal))
+TFileNames = typing.Union[str, typing.List[str]]
 
+@attr.s
+class PermsManager(object):
+    executable: TFileNames = attr.ib()
+    pretend: bool = attr.ib(True)
 
-def change_perms(executable, perms: int, pretend: bool):
-    try:
-        if pretend:
-            executable.lower()
-            print('Would change {} to {}'.format(executable, perms))
-        else:
-            os.chmod(executable, perms)
-    except (AttributeError, TypeError):
-        if pretend:
-            for ex in executable:
-                print('Would change {} to {}'.format(ex, perms))
-        else:
-            for ex_path in executable:
+    def change_perms(self, perms: int):
+        try:
+            if self.pretend:
+                self.executable.lower()
+                print('Would change {} to {}'.format(self.executable, perms))
+            else:
+                os.chmod(self.executable, perms)
+        except (AttributeError, TypeError):
+            if self.pretend:
+                for ex in self.executable:
+                    print('Would change {} to {}'.format(ex, perms))
+            else:
+                for ex_path in self.executable:
+                    try:
+                        os.chmod(ex_path, perms)
+                    except FileNotFoundError as fnfe:
+                        print(fnfe)
+
+    def enable(self):
+        self.change_perms(ORIG_MODE)
+
+    def disable(self):
+        self.change_perms(0)
+
+    def stat_files(self, file_names: TFileNames):
+        try:
+            f_mode = os.stat(file_names).st_mode & 0o777
+            return {file_names: f_mode}
+        except TypeError:
+            # return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
+            result = {}
+            for file_name in file_names:
                 try:
-                    os.chmod(ex_path, perms)
+                    result[file_name] = os.stat(file_name).st_mode & 0o777
                 except FileNotFoundError as fnfe:
                     print(fnfe)
-
-
-def enable(executable, pretend: bool):
-    change_perms(executable, ORIG_MODE, pretend)
-
-
-def disable(executable, pretend: bool):
-    change_perms(executable, 0, pretend)
-
-
-def stat_files(file_names):
-    try:
-        f_mode = os.stat(file_names).st_mode & 0o777
-        return {file_names: f_mode}
-    except TypeError:
-        # return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
-        result = {}
-        for file_name in file_names:
-            try:
-                result[file_name] = os.stat(file_name).st_mode & 0o777
-            except FileNotFoundError as fnfe:
-                print(fnfe)
-        return result
+            return result
 
 
 def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
@@ -169,18 +173,20 @@ def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
         return 1
     if cfg.firewall:
         firewall = FirewallManager(cfg.firewall, cfg.pretend)
+    proc_mgr = ProcessManager(cfg.processes, cfg.log)
+    perms_mgr = PermsManager(cfg.launcher, cfg.pretend)
     if cfg.command == 'on':
         if cfg.firewall:
             print(firewall.allow())
-        enable(cfg.launcher, cfg.pretend)
+        perms_mgr.enable()
     elif cfg.command == 'off':
-        disable(cfg.launcher, cfg.pretend)
-        kill_all_instances(cfg.processes, cfg.kill_signal, cfg.log, cfg.pretend)
+        perms_mgr.disable()
+        proc_mgr.kill_all_instances(cfg.kill_signal, cfg.pretend)
         if cfg.firewall:
             print(firewall.deny())
     elif cfg.command == 'status':
-        f_modes = stat_files(cfg.launcher)
-        pids = list_instances(cfg.processes, verbose=cfg.verbose)
+        f_modes = perms_mgr.stat_files(cfg.launcher)
+        pids = proc_mgr.list_instances(verbose=cfg.verbose)
         if cfg.verbose:
             print('\n  '.join(pids.values()))
         for launcher, f_mode in f_modes.items():

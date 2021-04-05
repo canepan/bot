@@ -52,4 +52,5 @@ def test_main_unsafe_root(mock_run, mock_getpass, mock_ip_if_not_local):
     cmd = mock_run.mock_calls[0].args[0]
     assert cmd[0] == 'ssh'
     cmd = mock_run.mock_calls[1].args[0]
-    assert cmd[0].startswith('grep')
+    assert cmd[0] == 'bash'
+    assert cmd[2].startswith('grep')
