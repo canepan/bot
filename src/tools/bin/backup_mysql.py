@@ -50,7 +50,7 @@ def parse_args(argv=sys.argv[1:]):
     return parser.parse_args(argv)
 
 
-def main():
+def main(argv: list = sys.argv[1:]):
     cfg = parse_args()
     _log = logging.getLogger(__name__)
     _log.addHandler(logging.StreamHandler(sys.stdout))
