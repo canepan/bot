@@ -66,19 +66,21 @@ def main(argv: list = sys.argv[1:]):
     _log.debug('Last chunk')
     command.communicate()
     if os.path.isfile(cfg.output_file):
-        _log.info('%s exists: checking', cfg.output_file)
-        new_size = os.stat(_output.name).st_size
         old_size = os.stat(cfg.output_file).st_size
-        if abs(new_size - old_size) > 0.1 * old_size:
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-            _log.info('Renaming %s to %s.%s', cfg.output_file, cfg.output_file, timestamp)
-            os.rename(cfg.output_file, '{}.{}'.format(cfg.output_file, timestamp))
-        if new_size > 0:
-            _log.info('Renaming tempfile %s to %s', _output.name, cfg.output_file)
-            os.rename(_output.name, cfg.output_file)
-        else:
-            _log.info('Removing empty tempfile')
-            os.remove(_output.name)
+    else:
+        old_size = 0
+    _log.info('%s exists: checking', cfg.output_file)
+    new_size = os.stat(_output.name).st_size
+    if abs(new_size - old_size) > 0.1 * old_size:
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        _log.info('Renaming %s to %s.%s', cfg.output_file, cfg.output_file, timestamp)
+        os.rename(cfg.output_file, '{}.{}'.format(cfg.output_file, timestamp))
+    if new_size > 0:
+        _log.info('Renaming tempfile %s to %s', _output.name, cfg.output_file)
+        os.rename(_output.name, cfg.output_file)
+    else:
+        _log.info('Removing empty tempfile')
+        os.remove(_output.name)
     return 0
 
 
