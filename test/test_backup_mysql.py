@@ -44,7 +44,7 @@ def test_main(mock_datetime, mock_os, mock_subprocess, mock_tempfile, file_size_
     final_file = f'/mnt/opt/backup/mysql/{mock_os.uname.return_value.nodename}_all_dump.sql.gz'
     saved_file = f'{final_file}.{mock_datetime.now.return_value.strftime.return_value}'
     mock_os.stat.side_effect = {
-        final_file: mock.Mock(st_size=file_size_P),
+        final_file: mock.Mock(st_size=file_size_P) if isfile_P else FileNotFoundError(),
         mock_tempfile.return_value.name: mock.Mock(st_size=file_size_T),
     }.get
     mock_os.path.isfile.return_value = isfile_P

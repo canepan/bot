@@ -50,6 +50,29 @@ def parse_args(argv=sys.argv[1:]):
     return parser.parse_args(argv)
 
 
+class FileSize(object):
+    def __init__(self, old_file: str, new_file: str):
+        self.old_file = old_file
+        self.new_file = new_file
+        self._old_size = None
+        self._new_size = None
+
+    @property
+    def old_size(self) -> int:
+        if self._old_size is None:
+            self._old_size = os.stat(self.old_file).st_size
+        return self._old_size
+
+    @property
+    def new_size(self) -> int:
+        if self._new_size is None:
+            self._new_size = os.stat(self.new_file).st_size
+        return self._new_size
+
+    def size_difference_percent(self)-> float:
+        return (self.new_size - self.old_size) / self.old_size
+
+
 def main(argv: list = sys.argv[1:]):
     cfg = parse_args()
     _log = logging.getLogger(__name__)
@@ -65,17 +88,14 @@ def main(argv: list = sys.argv[1:]):
         _output.write(gzipstream.read())
     _log.debug('Last chunk')
     command.communicate()
-    if os.path.isfile(cfg.output_file):
-        old_size = os.stat(cfg.output_file).st_size
-    else:
-        old_size = 0
-    _log.info('%s exists: checking', cfg.output_file)
-    new_size = os.stat(_output.name).st_size
-    if abs(new_size - old_size) > 0.1 * old_size:
+    # If destination file already exists, save the old one if size if > 10% difference
+    fsd = FileSize(cfg.output_file, _output.name)
+    if os.path.isfile(cfg.output_file) and abs(fsd.size_difference_percent()) > 0.1:
+        _log.debug('%s exists: checking', cfg.output_file)
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         _log.info('Renaming %s to %s.%s', cfg.output_file, cfg.output_file, timestamp)
         os.rename(cfg.output_file, '{}.{}'.format(cfg.output_file, timestamp))
-    if new_size > 0:
+    if fsd.new_size > 0:
         _log.info('Renaming tempfile %s to %s', _output.name, cfg.output_file)
         os.rename(_output.name, cfg.output_file)
     else:
