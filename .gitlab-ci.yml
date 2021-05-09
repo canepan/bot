@@ -1,0 +1,16 @@
+# Using the official Python Docker image as default
+image: "python"
+
+before_script:
+  - python --version
+  - [ -r requirements.txt ] && pip install -r requirements.txt
+  - pip install tox
+
+stages:
+  - Test
+
+unit_test:
+  stage: Test
+  script:
+    - tox
+
