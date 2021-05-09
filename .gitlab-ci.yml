@@ -3,7 +3,7 @@ image: "python"
 
 before_script:
   - python --version
-  - [ -r requirements.txt ] && pip install -r requirements.txt
+  - "[ -r requirements.txt ] && pip install -r requirements.txt"
   - pip install tox
 
 stages:
