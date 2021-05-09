@@ -26,6 +26,7 @@ pages:
   dependencies:
     - unit_test
   script:
+    - mkdir -p public
     - mv htmlcov public/
   artifacts:
     paths:
