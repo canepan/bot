@@ -5,7 +5,7 @@ before_script:
   - python --version
   - uname -a
   - apt-get update
-  - apt-get install -y libldap2-dev
+  - apt-get install -y libldap2-dev libsasl2-dev
   - "[ -r requirements.txt ] && pip install -r requirements.txt"
   - pip install tox
 
