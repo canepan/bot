@@ -19,9 +19,7 @@ unit_test:
     - tox
 
 pages:
-  stage: Publish
-  dependencies:
-    - unit_test
+  stage: Test
   script:
     - mv htmlcov public/
   artifacts:
