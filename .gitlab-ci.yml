@@ -17,9 +17,14 @@ unit_test:
   stage: Test
   script:
     - tox
+  artifacts:
+    paths:
+      - htmlcov/
 
 pages:
-  stage: Test
+  stage: Publish
+  dependencies:
+    - unit_test
   script:
     - mv htmlcov public/
   artifacts:
