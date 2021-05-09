@@ -1,0 +1,205 @@
+5eba2c0d conn=131705 fd=37 ACCEPT from IP=192.168.19.120:60162 (IP=0.0.0.0:389)
+5eba2c0d conn=131705 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" method=128
+5eba2c0d conn=131705 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" mech=SIMPLE ssf=0
+5eba2c0d conn=131705 op=0 RESULT tag=97 err=0 text=
+5eba2c0d conn=131705 op=1 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c0d conn=131705 op=1 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c0d conn=131705 op=1 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=131705 op=2 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c10 conn=131705 op=2 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=131705 op=3 SRCH base="ou=groups,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixGroup)(|(memberUid=leonardo)(uniqueMember=cn=leonardo canepa,ou=users,dc=nicolacanepa,dc=net)))"
+5eba2c10 conn=131705 op=3 SRCH attr=gidNumber
+5eba2c10 <= mdb_equality_candidates: (memberUid) not indexed
+5eba2c10 <= mdb_equality_candidates: (uniqueMember) not indexed
+5eba2c10 conn=131705 op=3 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c10 conn=83051 op=2207 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2207 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2207 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2208 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2208 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2208 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c10 conn=83051 op=2209 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2209 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2209 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2210 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c10 conn=83051 op=2210 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c10 conn=83051 op=2210 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2211 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2211 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2211 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2212 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2212 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2212 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c10 conn=83051 op=2213 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2213 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2213 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2214 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c10 conn=83051 op=2214 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c10 conn=83051 op=2214 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2215 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c10 conn=83051 op=2215 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c10 conn=83051 op=2215 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2216 SRCH base="cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=*)"
+5eba2c10 conn=83051 op=2216 SRCH attr=objectclass
+5eba2c10 conn=83051 op=2216 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2217 MOD dn="cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net"
+5eba2c10 conn=83051 op=2217 MOD attr=krbLastSuccessfulAuth krbExtraData
+5eba2c10 conn=83051 op=2217 RESULT tag=103 err=0 text=
+5eba2c10 conn=83051 op=2218 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2218 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2218 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c10 conn=83051 op=2219 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2219 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2219 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2220 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=host/phoenix.canne@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2220 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2220 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c10 conn=83051 op=2221 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=host/phoenix.canne@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2221 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2221 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=83051 op=2222 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c10 conn=83051 op=2222 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c10 conn=83051 op=2222 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=131705 op=4 UNBIND
+5eba2c10 conn=131705 fd=37 closed
+5eba2c10 conn=131706 fd=37 ACCEPT from IP=192.168.19.120:60176 (IP=0.0.0.0:389)
+5eba2c10 conn=131706 op=0 BIND dn="cn=proxyuser,ou=system,dc=nicolacanepa,dc=net" method=128
+5eba2c10 conn=131706 op=0 BIND dn="cn=proxyuser,ou=system,dc=nicolacanepa,dc=net" mech=SIMPLE ssf=0
+5eba2c10 conn=131706 op=0 RESULT tag=97 err=0 text=
+5eba2c10 conn=131706 op=1 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c10 conn=131706 op=1 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c10 conn=131706 op=1 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=131706 op=2 UNBIND
+5eba2c10 conn=131706 fd=37 closed
+5eba2c10 conn=131707 fd=37 ACCEPT from IP=192.168.19.120:60178 (IP=0.0.0.0:389)
+5eba2c10 conn=131707 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" method=128
+5eba2c10 conn=131707 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" mech=SIMPLE ssf=0
+5eba2c10 conn=131707 op=0 RESULT tag=97 err=0 text=
+5eba2c10 conn=131707 op=1 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c10 conn=131707 op=1 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c10 conn=131707 op=1 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c10 conn=131707 fd=37 closed (connection lost)
+5eba2c14 conn=131708 fd=37 ACCEPT from IP=192.168.19.120:60186 (IP=0.0.0.0:389)
+5eba2c14 conn=131708 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" method=128
+5eba2c14 conn=131708 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" mech=SIMPLE ssf=0
+5eba2c14 conn=131708 op=0 RESULT tag=97 err=0 text=
+5eba2c14 conn=131708 op=1 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c14 conn=131708 op=1 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c14 conn=131708 op=1 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=131708 op=2 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c16 conn=131708 op=2 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=131708 op=3 SRCH base="ou=groups,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixGroup)(|(memberUid=leonardo)(uniqueMember=cn=leonardo canepa,ou=users,dc=nicolacanepa,dc=net)))"
+5eba2c16 conn=131708 op=3 SRCH attr=gidNumber
+5eba2c16 <= mdb_equality_candidates: (memberUid) not indexed
+5eba2c16 <= mdb_equality_candidates: (uniqueMember) not indexed
+5eba2c16 conn=131708 op=3 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c16 conn=83051 op=2223 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2223 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2223 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2224 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2224 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2224 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c16 conn=83051 op=2225 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2225 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2225 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2226 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c16 conn=83051 op=2226 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c16 conn=83051 op=2226 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2227 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2227 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2227 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2228 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2228 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2228 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c16 conn=83051 op=2229 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2229 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2229 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2230 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c16 conn=83051 op=2230 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c16 conn=83051 op=2230 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2231 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c16 conn=83051 op=2231 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c16 conn=83051 op=2231 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2232 SRCH base="cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=*)"
+5eba2c16 conn=83051 op=2232 SRCH attr=objectclass
+5eba2c16 conn=83051 op=2232 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2233 MOD dn="cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net"
+5eba2c16 conn=83051 op=2233 MOD attr=krbLastFailedAuth krbLoginFailedCount krbExtraData
+5eba2c16 conn=83051 op=2233 RESULT tag=103 err=0 text=
+5eba2c16 conn=131708 op=4 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c16 conn=131708 op=4 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c16 conn=131708 op=4 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2234 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2234 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2234 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2235 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2235 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2235 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c16 conn=83051 op=2236 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2236 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2236 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2237 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c16 conn=83051 op=2237 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c16 conn=83051 op=2237 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2238 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=leonardo@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2238 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2238 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2239 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2239 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2239 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c16 conn=83051 op=2240 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=krbtgt/NICOLACANEPA.NET@NICOLACANEPA.NET))"
+5eba2c16 conn=83051 op=2240 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c16 conn=83051 op=2240 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2241 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c16 conn=83051 op=2241 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c16 conn=83051 op=2241 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2242 SRCH base="cn=default,cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=krbPwdPolicy)"
+5eba2c16 conn=83051 op=2242 SRCH attr=cn krbmaxpwdlife krbminpwdlife krbpwdmindiffchars krbpwdminlength krbpwdhistorylength krbpwdmaxfailure krbpwdfailurecountinterval krbpwdlockoutduration krbpwdattributes krbpwdmaxlife krbpwdmaxrenewablelife krbpwdallowedkeysalts
+5eba2c16 conn=83051 op=2242 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2243 SRCH base="cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net" scope=0 deref=0 filter="(objectClass=*)"
+5eba2c16 conn=83051 op=2243 SRCH attr=objectclass
+5eba2c16 conn=83051 op=2243 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=83051 op=2244 MOD dn="cn=Leonardo Canepa,ou=users,dc=nicolacanepa,dc=net"
+5eba2c16 conn=83051 op=2244 MOD attr=krbLastFailedAuth krbLoginFailedCount krbExtraData
+5eba2c16 conn=83051 op=2244 RESULT tag=103 err=0 text=
+5eba2c16 conn=131708 op=5 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c16 conn=131708 op=5 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c16 conn=131708 op=5 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=131708 op=6 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c16 conn=131708 op=6 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c16 conn=131708 op=6 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c16 conn=131708 op=7 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=leonardo))"
+5eba2c16 conn=131708 op=7 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c16 conn=131708 op=7 SEARCH RESULT tag=101 err=0 nentries=1 text=
+5eba2c19 conn=131708 fd=37 closed (connection lost)
+5eba2c23 conn=131709 fd=37 ACCEPT from IP=192.168.19.120:60228 (IP=0.0.0.0:389)
+5eba2c23 conn=131709 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" method=128
+5eba2c23 conn=131709 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" mech=SIMPLE ssf=0
+5eba2c23 conn=131709 op=0 RESULT tag=97 err=0 text=
+5eba2c23 conn=131709 op=1 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uidNumber=999))"
+5eba2c23 conn=131709 op=1 SRCH attr=uid userPassword uidNumber gidNumber cn homeDirectory loginShell gecos description objectClass
+5eba2c23 <= mdb_equality_candidates: (uidNumber) not indexed
+5eba2c23 conn=131709 op=1 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c23 conn=131709 fd=37 closed (connection lost)
+5eba2c26 conn=131710 fd=37 ACCEPT from IP=192.168.19.120:60240 (IP=0.0.0.0:389)
+5eba2c26 conn=131710 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" method=128
+5eba2c26 conn=131710 op=0 BIND dn="cn=manager,ou=system,dc=nicolacanepa,dc=net" mech=SIMPLE ssf=0
+5eba2c26 conn=131710 op=0 RESULT tag=97 err=0 text=
+5eba2c26 conn=131710 op=1 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=root))"
+5eba2c26 conn=131710 op=1 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c26 conn=131710 op=2 SRCH base="ou=groups,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixGroup)(memberUid=root))"
+5eba2c26 conn=131710 op=2 SRCH attr=gidNumber
+5eba2c26 <= mdb_equality_candidates: (memberUid) not indexed
+5eba2c26 conn=131710 op=2 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c26 conn=83051 op=2245 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=root@NICOLACANEPA.NET))"
+5eba2c26 conn=83051 op=2245 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c26 conn=83051 op=2245 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c26 conn=83051 op=2246 SRCH base="cn=NICOLACANEPA.NET,cn=krbContainer,dc=nicolacanepa,dc=net" scope=2 deref=0 filter="(&(|(objectClass=krbPrincipalAux)(objectClass=krbPrincipal))(krbPrincipalName=root@NICOLACANEPA.NET))"
+5eba2c26 conn=83051 op=2246 SRCH attr=krbprincipalname krbcanonicalname objectclass krbprincipalkey krbmaxrenewableage krbmaxticketlife krbticketflags krbprincipalexpiration krbticketpolicyreference krbUpEnabled krbpwdpolicyreference krbpasswordexpiration krbLastFailedAuth krbLoginFailedCount krbLastSuccessfulAuth krbLastPwdChange krbLastAdminUnlock krbPrincipalAuthInd krbExtraData krbObjectReferences krbAllowedToDelegateTo krbPwdHistory
+5eba2c26 conn=83051 op=2246 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c26 conn=131710 op=3 SRCH base="ou=users,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixAccount)(uid=root))"
+5eba2c26 conn=131710 op=3 SEARCH RESULT tag=101 err=0 nentries=0 text=
+5eba2c26 conn=131710 op=4 SRCH base="ou=groups,dc=nicolacanepa,dc=net" scope=1 deref=0 filter="(&(objectClass=posixGroup)(memberUid=root))"
+5eba2c26 conn=131710 op=4 SRCH attr=gidNumber
+5eba2c26 <= mdb_equality_candidates: (memberUid) not indexed
+5eba2c26 conn=131710 op=4 SEARCH RESULT tag=101 err=0 nentries=0 text=
