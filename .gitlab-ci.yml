@@ -23,10 +23,10 @@ pages:
   dependencies:
     - unit_test
   script:
-    - mv coverage public/
+    - mv htmlcov public/
   artifacts:
     paths:
-      - public/coverage
+      - public/htmlcov
     expire_in: 30 days
   only:
     - master
