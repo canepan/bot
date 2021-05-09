@@ -17,3 +17,16 @@ unit_test:
   script:
     - tox
 
+pages:
+  stage: test
+  dependencies:
+    - unit_test
+  script:
+    - mv coverage public/
+  artifacts:
+    paths:
+      - public/coverage
+    expire_in: 30 days
+  only:
+    - master
+
