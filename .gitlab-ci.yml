@@ -18,7 +18,7 @@ unit_test:
     - tox
 
 pages:
-  stage: test
+  stage: Test
   dependencies:
     - unit_test
   script:
