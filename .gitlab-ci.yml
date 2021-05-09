@@ -3,6 +3,8 @@ image: "python"
 
 before_script:
   - python --version
+  - uname -a
+  - apt-get install -y libldap2-dev
   - "[ -r requirements.txt ] && pip install -r requirements.txt"
   - pip install tox
 
