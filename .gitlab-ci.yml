@@ -11,6 +11,7 @@ before_script:
 
 stages:
   - Test
+  - Publish
 
 unit_test:
   stage: Test
@@ -18,7 +19,7 @@ unit_test:
     - tox
 
 pages:
-  stage: Test
+  stage: Publish
   dependencies:
     - unit_test
   script:
