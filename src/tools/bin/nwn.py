@@ -8,17 +8,17 @@ import textwrap
 import time
 
 
-# data_dmg = os.path.expanduser('~/Documents/Nicola/NWNSaveGames.sparsebundle')
-data_dmg = os.path.expanduser('~/Documents/Nicola/NWNConfig.sparseimage')
-data_dir = os.path.expanduser('~/Documents/Nicola/MacData')
-data_link = os.path.expanduser('~/Documents/Neverwinter Nights')
-bin_dmg = os.path.expanduser('~/Documents/Nicola/NicolaMac.dmg')
-bin_dir = os.path.expanduser('~/Documents/Nicola/Mac')
-main_exe = f'{bin_dir}/Neverwinter Nights Enhanced Edition/bin/macos/nwmain.app/Contents/MacOS/nwmain'
-
-
 class NWN(object):
-    remote_hosts = ['quark', 'foo_rsync', 'www.nicolacanepa.net']
+    def _defaults(self) -> None:
+        self.remote_hosts = ['quark', 'foo_rsync', 'www.nicolacanepa.net']
+        self._BASE_DIR = os.path.expanduser('~/Documents')
+        self._BASE_DATA = '{BASE_DIR}/Nicola'
+        self._DATA_DMG = '{BASE_DATA}/NWNConfig.sparseimage'
+        self._data_dir = '{BASE_DATA}/MacData'
+        self._data_link = '{BASE_DIR}/Neverwinter Nights'
+        self._bin_dmg = '{BASE_DATA}/NicolaMac.dmg'
+        self._bin_dir = '{BASE_DATA}/Mac'
+        self._main_exe = '{bin_dir}/Neverwinter Nights Enhanced Edition/bin/macos/nwmain.app/Contents/MacOS/nwmain'
 
     def __init__(self, pretend: bool = True, verbose: bool = True) -> None:
         self.unsafe = not pretend
@@ -28,6 +28,53 @@ class NWN(object):
         self.log.addHandler(logging.StreamHandler(sys.stdout))
         if self.verbose:
             self.log.setLevel(logging.DEBUG)
+        self._data_dmg = None
+        self._data_dir = None
+        self._data_link = None
+        self._bin_dmg = None
+        self._bin_dir = None
+        self._main_exe = None
+        self._defaults()
+
+    @property
+    def BASE_DIR(self):
+        return os.path.expanduser(self._BASE_DIR)
+
+    @property
+    def BASE_DATA(self):
+        return self._BASE_DATA.format(BASE_DIR=self.BASE_DIR)
+
+    @property
+    def DATA_DMG(self):
+        return self._DATA_DMG.format(BASE_DATA=self.BASE_DATA)
+
+    @property
+    def data_dir(self):
+        return self._data_dir.format(BASE_DATA=self.BASE_DATA)
+
+    @property
+    def data_link(self):
+        return self._data_link.format(BASE_DIR=self.BASE_DIR)
+
+    @property
+    def bin_dmg(self):
+        return self._bin_dmg.format(BASE_DATA=self.BASE_DATA)
+
+    @property
+    def main_exe(self):
+        return self._main_exe.format(bin_dir=self.bin_dir)
+
+    @property
+    def bin_dir(self):
+        return self._bin_dir.format(BASE_DATA=self.BASE_DATA)
+
+    @property
+    def data_dmg(self) -> str:
+        import inspect
+        print(f'Running {inspect.getframeinfo(inspect.currentframe())[2]}')
+        if self._data_dmg is None:
+            self._data_dmg = self.DATA_DMG.format(BASE_DIR=self.BASE_DIR, BASE_DATA=self.BASE_DATA)
+        return self._data_dmg
 
     def indented(self, func_name, *args, **kwargs):
         self._indent += 1
@@ -138,22 +185,22 @@ class NWN(object):
         return 0
 
     def on(self) -> int:
-        _err = self._mount_local(data_dmg, data_link)
+        _err = self._mount_local(self.data_dmg, self.data_link)
         # if os.path.islink(data_link):
         #     _err += self._rm(data_link)
         # _err += self._ln(f'{data_dir}/Neverwinter Nights', data_link)
-        _err += self._mount_via_ssh(f'{data_link}/saves')
-        _err += self._mount_local(bin_dmg, bin_dir)
-        _err += self._exec([main_exe]).returncode
+        _err += self._mount_via_ssh(f'{self.data_link}/saves')
+        _err += self._mount_local(self.bin_dmg, self.bin_dir)
+        _err += self._exec([self.main_exe]).returncode
         return _err
 
     def off(self) -> int:
-        _err = self._umount_ssh(f'{data_link}/saves')
-        _err += self._umount_local(bin_dir)
-        umount_err = self._umount_local(data_link)
+        _err = self._umount_ssh(f'{self.data_link}/saves')
+        _err += self._umount_local(self.bin_dir)
+        umount_err = self._umount_local(self.data_link)
         if umount_err == 0:
-            if os.path.islink(data_link):
-                _err += self._rm(data_link)
+            if os.path.islink(self.data_link):
+                _err += self._rm(self.data_link)
         else:
             _err += umount_err
         return _err
