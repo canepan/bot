@@ -74,6 +74,7 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
 @attr.s
 class FirewallManager(object):
     rules: tuple = attr.ib()
+    log: logging.Logger = attr.ib()
     pretend = attr.ib(default=True)
 
     def allow(self):
@@ -90,7 +91,7 @@ class FirewallManager(object):
 
     def status(self):
         output = subprocess.check_output(
-            ['ssh', 'admin@mt', f'/ip firewall address-list print'], stderr=subprocess.PIPE
+            ['ssh', '-i', '/Users/nicola/.ssh/mt_remote', 'manage_internet@mt', f'/ip firewall address-list print'], stderr=subprocess.PIPE
         ).decode('utf-8')
         return self.findrules(output)
 
@@ -102,12 +103,13 @@ class FirewallManager(object):
             if found:
                 found = False
                 rules_lines.append(line)
-            try:
-                if fields and int((fields[0])) in self.rules:
-                    found = True
-                    rules_lines.append(line)
-            except ValueError:
-                pass
+            else:
+                try:
+                    if fields and int((fields[0])) in self.rules:
+                        found = True
+                        rules_lines.append(line)
+                except ValueError:
+                    self.log.debug(f'Error when decoding the line number from {line}')
         return '\n'.join(rules_lines)
 
 
@@ -215,10 +217,10 @@ def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
     if not cfg:
         return 1
     if cfg.firewall:
-        firewall = FirewallManager(cfg.firewall, cfg.pretend)
-    proc_mgr = ProcessManager(cfg.processes, cfg.log)
-    perms_mgr = PermsManager(cfg.launcher, cfg.pretend)
-    proxy_mgr = ProxyManager(cfg.proxy, cfg.pretend)
+        firewall = FirewallManager(cfg.firewall, pretend=cfg.pretend, log=cfg.log)
+    proc_mgr = ProcessManager(cfg.processes, log=cfg.log)
+    perms_mgr = PermsManager(cfg.launcher, pretend=cfg.pretend)
+    proxy_mgr = ProxyManager(cfg.proxy, pretend=cfg.pretend)
     if cfg.command == 'on':
         if cfg.firewall:
             print(firewall.allow())
