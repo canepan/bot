@@ -47,3 +47,8 @@ pages:
   only:
     - master
 
+sast:
+  stage: Test
+  include:
+    - template: Security/SAST.gitlab-ci.yml
+
