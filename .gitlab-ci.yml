@@ -21,15 +21,17 @@ unit_test:
     paths:
       - htmlcov/
 
-unit_test38:
+unit_test:3.8:
+  image: "python:3.8"
   stage: Test
   script:
-    - tox -e py38
+    - tox
 
-unit_test39:
+unit_test:3.7:
+  image: "python:3.7"
   stage: Test
   script:
-    - tox -e py39
+    - tox
 
 pages:
   stage: Publish
