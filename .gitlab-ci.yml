@@ -21,6 +21,16 @@ unit_test:
     paths:
       - htmlcov/
 
+unit_test38:
+  stage: Test
+  script:
+    - tox -e py38
+
+unit_test39:
+  stage: Test
+  script:
+    - tox -e py39
+
 pages:
   stage: Publish
   dependencies:
