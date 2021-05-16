@@ -49,7 +49,7 @@ sast:
   stage: Test
   artifacts:
     paths:
-      gl-sast-report.json
+      - gl-sast-report.json
 
 include:
   - template: Security/SAST.gitlab-ci.yml
