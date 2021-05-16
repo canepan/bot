@@ -1,37 +1,35 @@
 # Using the official Python Docker image as default
-image: "python"
+image: python
 
-before_script:
-  - python --version
-  - uname -a
-  - apt-get update
-  - apt-get install -y libldap2-dev libsasl2-dev
-  - "[ -r requirements.txt ] && pip install -r requirements.txt"
-  - pip install tox
+.tests:
+  stage: Test
+  script:
+    - tox
+  before_script:
+    - python --version
+    - uname -a
+    - apt-get update
+    - apt-get install -y libldap2-dev libsasl2-dev
+    - "[ -r requirements.txt ] && pip install -r requirements.txt"
+    - pip install tox
 
 stages:
   - Test
   - Publish
 
 unit_test:
-  stage: Test
-  script:
-    - tox
+  extends: .tests
   artifacts:
     paths:
       - htmlcov/
 
 unit_test:3.8:
-  image: "python:3.8"
-  stage: Test
-  script:
-    - tox
+  image: python:3.8
+  extends: .tests
 
 unit_test:3.7:
-  image: "python:3.7"
-  stage: Test
-  script:
-    - tox
+  image: python:3.7
+  extends: .tests
 
 pages:
   stage: Publish
