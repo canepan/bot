@@ -67,25 +67,30 @@ def mock_log():
 
 
 def test_list_instances(mock_subprocess, mock_log):
-    assert ProcessManager(['process name'], mock_log).list_instances(verbose=False) == {
+    assert ProcessManager(['process name'], mock_log, signal=15, pretend=True).status() == {
         42: 'root        42  0.4  0.2      0     0 ?        S    Jan01   0:24 my process name is running'
     }
-    assert ProcessManager(['ReportCrash agent'], mock_log).list_instances(verbose=True) == {
+    assert ProcessManager(['ReportCrash agent'], mock_log, signal=15, pretend=False).status() == {
         6117: 'username         6117  18.5  0.5  4599996  39420   ??  S     9:37am   0:56.15 '
         '/System/Library/CoreServices/ReportCrash agent'
     }
 
 
 def test_list_instances_not_found(mock_subprocess, mock_log):
-    assert ProcessManager(['other process name'], mock_log).list_instances() == {}
-    assert ProcessManager(['Missing agent'], mock_log).list_instances() == {}
+    assert ProcessManager(['other process name'], mock_log).status() == {}
+    assert ProcessManager(['Missing agent'], mock_log).status() == {}
 
 
 def test_kill_all_instances(mock_os_kill, mock_subprocess, mock_log):
-    ProcessManager(['process name'], mock_log).kill_all_instances(signal=12, pretend=False)
+    ProcessManager(['process name'], mock_log, signal=12, pretend=False).deny()
     mock_os_kill.assert_called_with(42, 12)
-    ProcessManager(['ReportCrash agent'], mock_log).kill_all_instances(signal=15, pretend=False)
+    ProcessManager(['ReportCrash agent'], mock_log, signal=15, pretend=False).deny()
     mock_os_kill.assert_called_with(6117, 15)
+
+
+def test_kill_all_instances_pretend(mock_os_kill, mock_subprocess, mock_log):
+    ProcessManager(['process name'], mock_log, signal=12, pretend=True).deny()
+    mock_os_kill.assert_not_called()
 
 
 @pytest.mark.parametrize('command', ('on', 'off', 'status'))
@@ -155,7 +160,8 @@ def test_main_on(mock_os_chmod, mock_subprocess):
                 ],
                 stderr=mock_subprocess.PIPE,
             ),
-        ]
+        ],
+        any_order=True,
     )
 
 
@@ -166,7 +172,13 @@ def test_main_status(mock_os_chmod, mock_subprocess):
         [
             mock.call.check_output(['ps', 'auxwww'], stderr=mock_subprocess.PIPE),
             mock.call.check_output(
-                ['ssh', '-i', '/Users/nicola/.ssh/mt_remote', 'manage_internet@mt', '/ip firewall address-list print'],
+                [
+                    'ssh',
+                    '-i',
+                    '/Users/nicola/.ssh/mt_remote',
+                    'manage_internet@mt',
+                    '/ip firewall address-list print from=10,11',
+                ],
                 stderr=mock_subprocess.PIPE,
             ),
         ]

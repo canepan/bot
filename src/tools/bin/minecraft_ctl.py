@@ -9,6 +9,7 @@ import stat
 import subprocess
 import sys
 import typing
+from abc import ABC, abstractmethod
 
 ORIG_MODE = stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH
 DEFAULTS = {
@@ -23,6 +24,7 @@ DEFAULTS = {
         'proxy': {
             'enable': ['/usr/local/bin/manage_discord.py enable && /etc/init.d/e2guardian restart'],
             'disable': ['/usr/local/bin/manage_discord.py disable && /etc/init.d/e2guardian restart'],
+            'status': [],
         },
         'signal': '9',
     },
@@ -71,113 +73,137 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
     return cfg
 
 
+class AllowDenyManager(ABC):
+    @abstractmethod
+    def allow(self):
+        pass
+
+    @abstractmethod
+    def deny(self):
+        pass
+
+    @abstractmethod
+    def status(self):
+        pass
+
+
 @attr.s
-class FirewallManager(object):
+class FirewallManager(AllowDenyManager):
     rules: tuple = attr.ib()
     log: logging.Logger = attr.ib()
     pretend = attr.ib(default=True)
 
     def allow(self):
-        command = ['ssh', '-i', '/Users/nicola/.ssh/mt_remote', 'manage_internet@mt', f'/ip firewall address-list disable numbers={self.rules}']
+        command = [
+            'ssh',
+            '-i',
+            '/Users/nicola/.ssh/mt_remote',
+            'manage_internet@mt',
+            f'/ip firewall address-list disable numbers={self.rules}',
+        ]
         if self.pretend:
             return f'Would execute {command}'
         return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
 
     def deny(self):
-        command = ['ssh', '-i', '/Users/nicola/.ssh/mt_remote', 'manage_internet@mt', f'/ip firewall address-list enable numbers={self.rules}']
+        command = [
+            'ssh',
+            '-i',
+            '/Users/nicola/.ssh/mt_remote',
+            'manage_internet@mt',
+            f'/ip firewall address-list enable numbers={self.rules}',
+        ]
         if self.pretend:
             return f'Would execute {command}'
         return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
 
     def status(self):
         output = subprocess.check_output(
-            ['ssh', '-i', '/Users/nicola/.ssh/mt_remote', 'manage_internet@mt', f'/ip firewall address-list print'], stderr=subprocess.PIPE
+            [
+                'ssh',
+                '-i',
+                '/Users/nicola/.ssh/mt_remote',
+                'manage_internet@mt',
+                f'/ip firewall address-list print from={",".join([str(i) for i in self.rules])}',
+            ],
+            stderr=subprocess.PIPE,
         ).decode('utf-8')
-        return self.findrules(output)
-
-    def findrules(self, output):
-        rules_lines = []
-        found = False
-        for line in output.splitlines():
-            fields = line.split()
-            if found:
-                found = False
-                rules_lines.append(line)
-            else:
-                try:
-                    if fields and int((fields[0])) in self.rules:
-                        found = True
-                        rules_lines.append(line)
-                except ValueError:
-                    self.log.debug(f'Error when decoding the line number from {line}')
-        return '\n'.join(rules_lines)
+        return output
 
 
 @attr.s
-class ProcessManager(object):
+class ProcessManager(AllowDenyManager):
     terms: typing.List[typing.Pattern] = attr.ib()
     log: logging.Logger = attr.ib()
+    signal: int = attr.ib(default=15)
+    pretend: bool = attr.ib(default=True)
 
-    def list_instances(self, verbose: bool = False) -> dict:
+    def status(self) -> dict:
         ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
         pids = {}
         for line in ps_out.splitlines():
             if any({re.search(t, line) for t in self.terms}):
                 pids[int(line.split()[1])] = line
+        self.log.info('{} {}'.format(self.terms, 'running' if pids else 'not running'))
+        self.log.debug('\n  '.join(pids.values()))
         return pids
 
-    def kill_all_instances(self, signal: int, pretend: bool) -> None:
-        for pid, cmdline in self.list_instances(self.terms).items():
-            self.log.debug('Found {}: signaling {}'.format(cmdline, signal))
-            if not pretend:
-                os.kill(pid, signal)
-            self.log.info('{} killed ({})'.format(pid, signal))
+    def allow(self) -> None:
+        pass
+
+    def deny(self) -> None:
+        for pid, cmdline in self.status().items():
+            self.log.debug('Found {}: signaling {}'.format(cmdline, self.signal))
+            if not self.pretend:
+                os.kill(pid, self.signal)
+            self.log.info('{} killed ({})'.format(pid, self.signal))
 
 
 TFileNames = typing.Union[str, typing.List[str]]
 
+
 @attr.s
-class PermsManager(object):
+class PermsManager(AllowDenyManager):
     executable: TFileNames = attr.ib()
+    log: logging.Logger = attr.ib()
     pretend: bool = attr.ib(True)
 
     def change_perms(self, perms: int):
+        executable = self.executable
         try:
-            if self.pretend:
-                self.executable.lower()
-                print('Would change {} to {}'.format(self.executable, perms))
-            else:
-                os.chmod(self.executable, perms)
+            executable.lower()
+            executable = [self.executable]
         except (AttributeError, TypeError):
-            if self.pretend:
-                for ex in self.executable:
-                    print('Would change {} to {}'.format(ex, perms))
-            else:
-                for ex_path in self.executable:
-                    try:
-                        os.chmod(ex_path, perms)
-                    except FileNotFoundError as fnfe:
-                        print(fnfe)
+            pass
+        if self.pretend:
+            for ex_path in executable:
+                self.log.error('Would change {} to {}'.format(ex_path, perms))
+        else:
+            for ex_path in executable:
+                try:
+                    os.chmod(ex_path, perms)
+                except FileNotFoundError as fnfe:
+                    self.log.error(fnfe)
 
-    def enable(self):
+    def allow(self):
         self.change_perms(ORIG_MODE)
 
-    def disable(self):
+    def deny(self):
         self.change_perms(0)
 
-    def stat_files(self, file_names: TFileNames):
+    def status(self):
         try:
-            f_mode = os.stat(file_names).st_mode & 0o777
-            return {file_names: f_mode}
+            f_mode = os.stat(self.executable).st_mode & 0o777
+            f_modes = {self.executable: f_mode}
         except TypeError:
-            # return {file_name: os.stat(file_name).st_mode & 0o777 for file_name in file_names}
-            result = {}
-            for file_name in file_names:
+            f_modes = {}
+            for file_name in self.executable:
                 try:
-                    result[file_name] = os.stat(file_name).st_mode & 0o777
+                    f_modes[file_name] = os.stat(file_name).st_mode & 0o777
                 except FileNotFoundError as fnfe:
-                    print(fnfe)
-            return result
+                    self.log.error(f'{file_name} not found: {fnfe}')
+        for launcher, f_mode in f_modes.items():
+            self.log.debug('{}: {} ({}), '.format(launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode)))
 
 
 @attr.s
@@ -193,20 +219,28 @@ class Executor(object):
 
 
 @attr.s
-class ProxyManager(Executor):
+class ProxyManager(Executor, AllowDenyManager):
+    log: logging.Logger = attr.ib()
     proxy_commands: dict = attr.ib(dict())
     pretend: bool = attr.ib(True)
 
     def allow(self):
         results = []
-        for command in self.proxy_commands['enable']:
+        for command in self.proxy_commands.get('enable', []):
             command = ['ssh', '-t', '-i', '/Users/nicola/.ssh/id_rsa', 'phoenix', command + ' || true']
             results.append(self.exec(command))
         return '\n'.join(results)
 
     def deny(self):
         results = []
-        for command in self.proxy_commands['disable']:
+        for command in self.proxy_commands.get('disable', []):
+            command = ['ssh', '-t', '-i', '/Users/nicola/.ssh/id_rsa', 'phoenix', command + ' || true']
+            results.append(self.exec(command))
+        return '\n'.join(results)
+
+    def status(self):
+        results = []
+        for command in self.proxy_commands.get('status', []):
             command = ['ssh', '-t', '-i', '/Users/nicola/.ssh/id_rsa', 'phoenix', command + ' || true']
             results.append(self.exec(command))
         return '\n'.join(results)
@@ -216,37 +250,25 @@ def main(argv: list = sys.argv[1:], prog_name: str = sys.argv[0]) -> int:
     cfg = parse_args(argv, prog_name)
     if not cfg:
         return 1
+    managers = [
+        PermsManager(cfg.launcher, pretend=cfg.pretend, log=cfg.log),
+        ProcessManager(cfg.processes, log=cfg.log, signal=cfg.kill_signal, pretend=cfg.pretend),
+        ProxyManager(proxy_commands=cfg.proxy, pretend=cfg.pretend, log=cfg.log),
+    ]
     if cfg.firewall:
-        firewall = FirewallManager(cfg.firewall, pretend=cfg.pretend, log=cfg.log)
-    proc_mgr = ProcessManager(cfg.processes, log=cfg.log)
-    perms_mgr = PermsManager(cfg.launcher, pretend=cfg.pretend)
-    proxy_mgr = ProxyManager(cfg.proxy, pretend=cfg.pretend)
-    if cfg.command == 'on':
-        if cfg.firewall:
-            print(firewall.allow())
-        print(proxy_mgr.allow())
-        perms_mgr.enable()
-    elif cfg.command == 'off':
-        perms_mgr.disable()
-        proc_mgr.kill_all_instances(cfg.kill_signal, cfg.pretend)
-        print(proxy_mgr.deny())
-        if cfg.firewall:
-            print(firewall.deny())
-    elif cfg.command == 'status':
-        f_modes = perms_mgr.stat_files(cfg.launcher)
-        pids = proc_mgr.list_instances(verbose=cfg.verbose)
-        if cfg.verbose:
-            print('\n  '.join(pids.values()))
-        for launcher, f_mode in f_modes.items():
-            print(
-                '{}: {} ({}), {}'.format(
-                    launcher, 'active' if f_mode != 0 else 'disabled', oct(f_mode), 'running' if pids else 'not running'
-                )
-            )
-        if cfg.firewall:
-            print(firewall.status())
-    else:
-        print('Syntax:\n {} on|off|status\n({} provided)'.format(sys.argv[0], cfg.command))
+        managers.append(FirewallManager(cfg.firewall, pretend=cfg.pretend, log=cfg.log))
+    for manager in managers:
+        if cfg.command == 'on':
+            output = manager.allow()
+        elif cfg.command == 'off':
+            output = manager.deny()
+        elif cfg.command == 'status':
+            output = manager.status()
+        else:
+            cfg.log.error('Syntax:\n {} on|off|status\n({} provided)'.format(sys.argv[0], cfg.command))
+            return 1
+        if output:
+            cfg.log.info(output)
     return 0
 
 
