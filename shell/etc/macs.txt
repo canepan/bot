@@ -1,0 +1,63 @@
+F8:0D:60:BB:B8:17 Canon PIXMA MG4250
+4C:32:75:97:84:6F LaptopAmazon2
+70:EE:50:0D:5A:86 Netatmo
+DC:41:5F:59:69:5A iPhoneAmazon1
+C4:B3:01:D0:E7:23 MacLucia
+3C:D0:F8:56:B6:AE iPhoneLu
+B8:27:EB:82:FB:75 raspy old (Pi Model B+  V1.2)
+B8:27:EB:9F:0E:91 raspy2 (Pi Model 3B V1.2)
+DC:A6:32:50:60:40 raspy3 (Pi model 4)
+DC:A6:32:50:60:41 raspy3 wifi (Pi model 4)
+00:11:32:29:65:2E nas1
+00:1E:C2:0B:33:69 BigMac eth
+00:1E:C2:9E:2E:90 BigMac wifi
+00:26:B0:E6:2A:54 Mini eth
+00:26:B0:F4:3E:2C Mini wifi
+50:65:F3:3C:6B:7D phoenix eth
+40:6C:8F:39:d9:C7 Quark eth
+80:49:71:14:B5:D3 Quark wifi
+08:00:27:C9:E5:FF plone-01
+14:D1:69:3B:10:47 Honor 8x Nicola
+00:12:17:8c:7c:aa CCTV
+e4:8d:8c:c8:d5:ae Mikrotik
+1a:e8:29:66:ea:f0 Amplifi briidge mode
+dc:41:5f:59:69:5a .111 Leo's iPhone
+94:9F:3E:FC:83:E0 .104 Sonos Play:1
+
+e4:8d:8c:c8:d5:ad ??? (192.168.19.61 before plone-01 was on)
+AC:63:BE:1C:F2:89 ??? .115 amazon
+F8:32:E4:0E:0A:F7 ??? android
+00:1C:2B:1B:2B:36 ??? .107 (Alertme.com Limited)
+34:a8:eb:9a:63:68 ??? .112
+60:6D:3C:01:B0:64 ??? .106
+90:17:c8:8d:07:23 ??? .103 NetSurveillance (port 80)
+
+
+00:12:17:8C:7C:AA 192.168.19.117 (Cisco-Linksys)
+38:C9:86:23:D9:5A Apple mini-dp-ethernet - 192.168.19.119 (Apple)
+
+BC:4C:C4:98:0C:89 192.168.19.75  ???
+90:17:C8:8D:07:23 192.168.19.103 ???
+F6:D0:08:18:59:01 192.168.19.110 ???
+34:A8:EB:9A:63:68 192.168.19.112 ???
+18:E8:29:66:EA:F0 192.168.19.125 Ubiquiti
+78:BD:BC:21:9E:43 192.168.19.230 Samsung: TV?
+
+20200903
+3c:22:fb:a1:64:4d 192.168.19.110 Apple, Inc.
+74:d6:37:d0:8d:2e 192.168.19.105 Amazon Technologies Inc.
+88:11:96:6e:c2:b3 192.168.19.108 Y6 (HUAWEI TECHNOLOGIES CO.,LTD)
+88:e9:fe:62:7a:bf 192.168.19.128 Apple, Inc.
+a4:50:46:fb:8b:e0 192.168.19.109 Leo's Mi A2 (Xiaomi Communications Co Ltd)
+b0:fc:0d:7b:43:1f 192.168.19.129 192.168.19.103 FireTV cube wifi (Amazon Technologies Inc.)
+
+20201111
+00:09:34:4b:39:d1 192.168.19.112 pathfinder (Dream-Multimedia-Tv GmbH)
+d4:91:0f:bc:cd:e2 192.168.19.119 EchoDot rev3 (Amazon Technologies Inc.)
+dc:a6:32:e0:51:79 192.168.19.122 Pi400 wifi (Raspberry Pi Trading Ltd)
+dc:a6:32:e0:51:78 192.168.19.123 Pi400 (Raspberry Pi Trading Ltd)
+26:74:b1:cd:8f:51 192.168.19.118 ???
+8a:f2:83:70:81:e0 192.168.19.108 ???
+
+20210112
+8c:a9:82:88:1c:70 192.168.19.122 Lenovo Leo laptop
