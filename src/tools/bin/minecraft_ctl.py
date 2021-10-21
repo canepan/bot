@@ -57,6 +57,7 @@ def parse_args(argv: list, prog_name: str = sys.argv[0]) -> argparse.Namespace:
     p.add_argument('--processes', '-p', nargs='+', default=defaults['processes'])
     p.add_argument('--kill-signal', '-k', type=int, default=defaults.get('signal', '15'))
     p.add_argument('--firewall', '-f', type=list, default=defaults.get('firewall', ()))
+    p.add_argument('--timeout', '-t', type=int, default=None)
     p.add_argument('--proxy', '-x', type=json.loads, default=defaults.get('proxy', {'enable': [], 'disable': []}))
     p.add_argument('--pretend', '-P', action='store_true')
     p.add_argument('--quiet', '-q', action='store_true')
@@ -92,6 +93,7 @@ class FirewallManager(AllowDenyManager):
     rules: tuple = attr.ib()
     log: logging.Logger = attr.ib()
     pretend = attr.ib(default=True)
+    timeout: int = attr.ib(default=None)
 
     def allow(self):
         command = [
@@ -99,8 +101,11 @@ class FirewallManager(AllowDenyManager):
             '-i',
             '/Users/nicola/.ssh/mt_remote',
             'manage_internet@mt',
-            f'/ip firewall address-list disable numbers={self.rules}',
         ]
+        if self.timeout is None:
+            command.append(f'/ip firewall address-list disable numbers={self.rules}')
+        else:
+            command.append(f'/ip firewall address-list add list=KidsTemporaryAllow address=192.168.19.137 timeout={self.timeout}m')
         if self.pretend:
             return f'Would execute {command}'
         return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')
@@ -142,8 +147,10 @@ class ProcessManager(AllowDenyManager):
         ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
         pids = {}
         for line in ps_out.splitlines():
-            if any({re.search(t, line) for t in self.terms}):
+            if any((re.search(t, line) for t in self.terms)):
                 pids[int(line.split()[1])] = line
+            else:
+                self.log.debug(f'No {self.terms} in {line}')
         self.log.info('{} {}'.format(self.terms, 'running' if pids else 'not running'))
         self.log.debug('\n  '.join(pids.values()))
         return pids
@@ -194,8 +201,10 @@ class PermsManager(AllowDenyManager):
     def status(self):
         try:
             f_mode = os.stat(self.executable).st_mode & 0o777
+            self.log.debug(f'{self.executable} stat: {f_mode}')
             f_modes = {self.executable: f_mode}
-        except TypeError:
+        except TypeError as e:
+            self.log.debug(f'{self.executable} is not a string: {e}')
             f_modes = {}
             for file_name in self.executable:
                 try:
