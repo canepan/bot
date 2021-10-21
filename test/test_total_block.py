@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import pytest
 
 from tools.bin.total_block import main, user_if_not_me
@@ -40,8 +40,11 @@ def test_main(mock_run, mock_ip_if_not_local):
 def test_main_unsafe(mock_run, mock_getpass, mock_ip_if_not_local):
     main(['--unsafe', 'off'])
     cmd = mock_run.mock_calls[0].args[0]
+    # name, args, kwargs = mock_run.mock_calls[0]
+    cmd = mock_run.mock_calls[0][1][0]
+    name, args, kwargs = mock_run.mock_calls[0]
     assert cmd[0] == 'ssh'
-    cmd = mock_run.mock_calls[1].args[0]
+    cmd = mock_run.mock_calls[1][1][0]
     assert cmd[0] == 'sudo'
     mock_getpass.getuser.return_value = 'root'
 
@@ -49,8 +52,8 @@ def test_main_unsafe(mock_run, mock_getpass, mock_ip_if_not_local):
 def test_main_unsafe_root(mock_run, mock_getpass, mock_ip_if_not_local):
     mock_getpass.getuser.return_value = 'root'
     main(['--unsafe', 'off'])
-    cmd = mock_run.mock_calls[0].args[0]
+    cmd = mock_run.mock_calls[0][1][0]
     assert cmd[0] == 'ssh'
-    cmd = mock_run.mock_calls[1].args[0]
+    cmd = mock_run.mock_calls[1][1][0]
     assert cmd[0] == 'bash'
     assert cmd[2].startswith('grep')

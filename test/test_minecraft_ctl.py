@@ -1,7 +1,7 @@
-import mock
+from unittest import mock
 import pytest
 
-from tools.bin.minecraft_ctl import ProcessManager, main, parse_args
+from tools.bin.minecraft_ctl import DEFAULTS, ProcessManager, main, parse_args
 
 
 def chmod(*args):
@@ -9,19 +9,33 @@ def chmod(*args):
         raise TypeError('Mock chmod {}'.format(args))
 
 
+def os_stat(*args):
+    if not isinstance(args[0], str):
+        raise TypeError('Mock stat {}'.format(args))
+    return mock.MagicMock(name='stat')
+
+
 @pytest.fixture
 def mock_os_chmod(monkeypatch):
-    mock_os_chmod = mock.MagicMock(name='chmod')
-    mock_os_chmod.side_effect = chmod
-    monkeypatch.setattr('tools.bin.minecraft_ctl.os.chmod', mock_os_chmod)
-    yield mock_os_chmod
+    mock_obj = mock.MagicMock(name='chmod')
+    mock_obj.side_effect = chmod
+    monkeypatch.setattr('tools.bin.minecraft_ctl.os.chmod', mock_obj)
+    yield mock_obj
 
 
 @pytest.fixture
 def mock_os_kill(monkeypatch):
-    mock_os_kill = mock.MagicMock(name='kill')
-    monkeypatch.setattr('tools.bin.minecraft_ctl.os.kill', mock_os_kill)
-    yield mock_os_kill
+    mock_obj = mock.MagicMock(name='kill')
+    monkeypatch.setattr('tools.bin.minecraft_ctl.os.kill', mock_obj)
+    yield mock_obj
+
+
+@pytest.fixture
+def mock_os_stat(monkeypatch):
+    mock_obj = mock.MagicMock(name='stat')
+    mock_obj.side_effect = os_stat
+    monkeypatch.setattr('tools.bin.minecraft_ctl.os.stat', mock_obj)
+    yield mock_obj
 
 
 @pytest.fixture
@@ -55,7 +69,15 @@ def mock_subprocess(monkeypatch):
             b'''/usr/libexec/opendirectoryd\n'''
             b'''_coreaudiod       136   3.7  0.1  4314996   4924   ??  Ss   12Dec20 584:23.20 '''
             b'''/usr/sbin/coreaudiod\n'''
+            b'''nicola 1234 lunar_client\n'''
+            b'''nicola          46102   0.0  0.3  4336000  22856   ??  Ss   11:47am   0:00.09 '''
+            b'''/Applications/Lunar Client.app/Contents/MacOS/something\n'''
+            b'''nicola          46101   0.0  0.3  5385144  25132   ??  Ss   11:47am   0:00.09 '''
+            b'''/Applications/Safari.app/Contents/PlugIns/CacheDeleteExtension.appex/Contents/MacOS/xxx\n'''
+            b'''nicola          46100   0.0  0.2  4334920  15876   ??  S    11:47am   0:00.06 '''
+            b'''/Applications/iBooks.app/Contents/PlugIns/iBooksCacheDelete.appex/Contents/MacOS/iBooksCacheDelete\n'''
         ),
+        (b''),
     )
     monkeypatch.setattr('tools.bin.minecraft_ctl.subprocess', mock_subprocess)
     yield mock_subprocess
@@ -165,13 +187,51 @@ def test_main_on(mock_os_chmod, mock_subprocess):
     )
 
 
-def test_main_status(mock_os_chmod, mock_subprocess):
-    main(['status'], prog_name='minecraft_ctl')
-    mock_os_chmod.assert_not_called()
+def test_main_off(mock_os_chmod, mock_os_kill, mock_subprocess):
+    main(['off'], prog_name='minecraft_ctl')
+    mock_os_chmod.assert_has_calls([mock.call('/Applications/Minecraft.app/Contents/MacOS/launcher', 0)])
     mock_subprocess.assert_has_calls(
         [
-            mock.call.check_output(['ps', 'auxwww'], stderr=mock_subprocess.PIPE),
             mock.call.check_output(
+                [
+                    'ssh',
+                    '-i',
+                    '/Users/nicola/.ssh/mt_remote',
+                    'manage_internet@mt',
+                    '/ip firewall address-list enable numbers=(10, 11)',
+                ],
+                stderr=mock_subprocess.PIPE,
+            ),
+            mock.call.check_output(
+                [
+                    'ssh',
+                    '-t',
+                    '-i',
+                    '/Users/nicola/.ssh/id_rsa',
+                    'phoenix',
+                    '/usr/local/bin/manage_discord.py disable && /etc/init.d/e2guardian restart || true',
+                ],
+                stderr=mock_subprocess.PIPE,
+            ),
+        ],
+        any_order=True,
+    )
+    print(mock_subprocess.mock_calls)
+    print(f'mock_os_kill: {mock_os_kill.mock_calls}')
+    mock_os_kill.assert_called_with(15)
+
+
+def test_main_status(mock_os_chmod, mock_subprocess, monkeypatch):
+    with monkeypatch.context() as m:
+        mock_os_stat = mock.MagicMock(name='stat')
+        mock_os_stat.side_effect = os_stat
+        m.setattr('tools.bin.minecraft_ctl.os.stat', mock_os_stat)
+        main(['status'], prog_name='minecraft_ctl')
+    mock_os_chmod.assert_not_called()
+    mock_subprocess.check_output.assert_has_calls(
+        [
+            mock.call(['ps', 'auxwww'], stderr=mock_subprocess.PIPE),
+            mock.call(
                 [
                     'ssh',
                     '-i',
@@ -181,5 +241,22 @@ def test_main_status(mock_os_chmod, mock_subprocess):
                 ],
                 stderr=mock_subprocess.PIPE,
             ),
+        ]
+    )
+    for launcher in DEFAULTS['minecraft_ctl']['launcher']:
+        mock_os_stat.assert_has_calls([mock.call(launcher)])
+    mock_subprocess.check_output.assert_has_calls([mock.call(['ps', 'auxwww'], stderr=mock_subprocess.PIPE)])
+    mock_subprocess.check_output.assert_has_calls(
+        [
+            mock.call(
+                [
+                    'ssh',
+                    '-i',
+                    '/Users/nicola/.ssh/mt_remote',
+                    'manage_internet@mt',
+                    '/ip firewall address-list print from=10,11',
+                ],
+                stderr=mock_subprocess.PIPE,
+            )
         ]
     )

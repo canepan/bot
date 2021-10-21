@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import pytest
 
 from tools.libs import stools_defaults
@@ -19,6 +19,6 @@ def test_ip_if_not_local(mock_socket):
 
 
 def test_parse_args():
-    cfg = stools_defaults.parse_args(['-v', 'test'])
+    cfg = stools_defaults.parse_args(['-v', 'test'], {'filenames': {'nargs': '+'}})
     assert cfg.verbose is True
     assert cfg.filenames == ['test']
