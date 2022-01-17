@@ -3,6 +3,7 @@ import argparse
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from subprocess import run, PIPE
 
 HOSTS = {
@@ -15,7 +16,7 @@ class CommandRunner(object):
     def __init__(self, command):
         self.command = command
 
-    def run_remote_command(self, host) -> str:
+    def run_remote_command(self, host: str) -> (str, str, str, int):
         # print(' '.join(['ssh', '-q', '-o StrictHostKeyChecking false', '-o ConnectTimeout 5', host, self.command]))
         result = run(['ssh', '-q', '-o StrictHostKeyChecking false', '-o ConnectTimeout 5', host, self.command], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         return (host, result.stdout.rstrip('\n'), result.stderr.rstrip('\n'), result.returncode)
@@ -30,8 +31,13 @@ def parse_args(argv: list) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+@lru_cache(maxsize=1)
+def gethostname() -> str:
+    return socket.gethostname()
+
+
 def not_me(hostname: str) -> bool:
-    _myhn = socket.gethostname()
+    _myhn = gethostname()
     return _myhn.split('.')[0].lower() != hostname
 
 
@@ -57,9 +63,7 @@ def main(argv: list = sys.argv[1:]):
         results = tpool.map(cr.run_remote_command, hosts, timeout=5)
     for result in results:
         if cfg.with_errors or result[3] == 0:
-            text = result[1]
-            if result[2]:
-                text = f"{text}\n{result[2]}"
+            text = '\n'.join([r for r in result[1:3] if r])
             print(f'{result[0]}: {text}{"" if result[3] == 0 else f"({result[3]})"}')
 
 
