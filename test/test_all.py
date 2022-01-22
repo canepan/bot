@@ -50,7 +50,8 @@ def test_main_mac(mock_run, mock_socket, capsys):
 
     mock_socket.gethostname.assert_called_once_with()
     mock_run.assert_has_calls([call_for(hname, cmd) for hname in HOSTS['mac']], any_order=True)
-    assert capsys.readouterr().out.rstrip('\n') == '\n'.join(f'{hname}: my output\nerrors' for hname in HOSTS['mac'])
+    expected = '\n'.join(f'{hname}: my output\n{hname}: (err) errors' for hname in HOSTS['mac'])
+    assert capsys.readouterr().out.rstrip('\n') == expected
 
 
 def test_main_linux(mock_run, mock_socket, capsys):
