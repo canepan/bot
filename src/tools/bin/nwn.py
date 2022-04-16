@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/bin/sh
+# Taken from http://rosettacode.org/wiki/Multiline_shebang#Python
+"true" '''\'
+[ -x "${HOME}/Documents/venv/nwn/bin/python" ] && exec "${HOME}/Documents/venv/nwn/bin/python" "$0" "$@"
+exec /usr/bin/env python3 "$0" "$@"
+exit 127
+'''
+__doc__ = 'Run a command by first mounting local or remote image files on Mac'
 import argparse
 import logging
 import os
@@ -7,15 +14,20 @@ import sys
 import textwrap
 import time
 
+import attr
 
+
+@attr.s
 class RunFromImage(object):
     remote_hosts = ['quark', 'foo_rsync', 'www.nicolacanepa.net']
+    pretend: bool = attr.ib(default=True)
+    verbose: bool = attr.ib(default=True)
+    offline: bool = attr.ib(default=False)
+    _timeout: int = attr.ib(default=2)
 
-    def __init__(self, pretend: bool = True, verbose: bool = True, offline: bool = False) -> None:
-        self.unsafe = not pretend
-        self.verbose = verbose
-        self.offline = offline
+    def __attrs_post_init__(self) -> None:
         self._indent = 0
+        self._unison_cmd = ['unison', '-sshargs', f'-o "ConnectTimeout {self._timeout}"']
         self.log = logging.getLogger('canepa.nwn')
         self.log.addHandler(logging.StreamHandler(sys.stdout))
         if self.verbose:
@@ -42,44 +54,42 @@ class RunFromImage(object):
         self.log.error(*self._indent_first(*args), **kwargs)
 
     def _exec(self, cmd: list) -> subprocess.CompletedProcess:
-        self.log.info('Running %s', ' '.join(cmd))
-        if self.unsafe:
-            self.log.debug('Exec: %s', ' '.join(['"{}"'.format(c) for c in cmd]))
-            cprocess = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            self.log.info(cprocess.stdout.decode('utf-8'))
-            if cprocess.returncode != 0:
-                self.log.error(cprocess.stderr.decode('utf-8'))
-            return cprocess
-        return subprocess.CompletedProcess(cmd, 0)
+        self.info('Running %s', ' '.join(cmd))
+        if self.pretend:
+            return subprocess.CompletedProcess(cmd, 0)
+        self.debug('Exec: %s', ' '.join(['"{}"'.format(c) for c in cmd]))
+        cprocess = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.info(cprocess.stdout.decode('utf-8'))
+        if cprocess.returncode != 0:
+            self.error(cprocess.stderr.decode('utf-8'))
+        return cprocess
 
     def _mkdir(self, _dir: str) -> int:
-        self.log.debug('Create dir %s', _dir)
-        if self.unsafe and not os.path.isdir(_dir):
+        self.debug('Create dir %s', _dir)
+        if not (self.pretend or os.path.isdir(_dir)):
             try:
                 os.makedirs(_dir)
             except OSError as e:
-                self.log.error('Unable to create dir %s: %s', _dir, e)
+                self.error('Unable to create dir %s: %s', _dir, e)
                 return 1
         return 0
 
     def _rmdir(self, _dir: str) -> int:
-        self.log.debug('Remove dir %s', _dir)
-        if self.unsafe and os.path.isdir(_dir):
+        self.debug('Remove dir %s', _dir)
+        if not self.pretend and os.path.isdir(_dir):
             try:
                 os.rmdir(_dir)
             except OSError as e:
-                self.log.error('Unable to remove dir %s: %s', _dir, e)
+                self.error('Unable to remove dir %s: %s', _dir, e)
                 return 1
         return 0
 
     def _mount_local(self, _dmg: str, _dir: str) -> int:
-        self.log.info('Mounting %s to %s', _dmg, _dir)
+        self.info('Mounting %s to %s', _dmg, _dir)
         _err = self.indented(self._mkdir, _dir)
         cmd = ['hdiutil', 'mount']
-#        if self.verbose:
-#            cmd.append('-verbose')
         cmd.extend([_dmg, '-mountpoint', _dir])
-        self.log.debug('Mount %s to %s', _dmg, _dir)
+        self.debug('Mount %s to %s', _dmg, _dir)
         _err += self.indented(self._exec, cmd).returncode
         return _err
 
@@ -89,31 +99,32 @@ class RunFromImage(object):
         return _err
 
     def _umount(self, _dir: str) -> int:
-        self.log.info('Unmounting %s', _dir)
+        self.info('Unmounting %s', _dir)
         cmd = ['hdiutil', 'eject']
         if self.verbose:
             cmd.append('-verbose')
         cmd.append(_dir)
-        self.log.debug('Umount %s', _dir)
+        self.debug('Umount %s', _dir)
         return self.indented(self._exec, cmd).returncode
 
     def _non_failing_sync(self, _dir: str):
-        if self._exec(['unison', '-testserver', 'nwn']).returncode == 0:
-            self._exec(['unison', '-batch', 'nwn'])
+        if self._exec(self._unison_cmd + ['-testserver', 'nwn']).returncode == 0:
+            self._exec(self._unison_cmd + ['-batch', 'nwn'])
 
     def _mount_via_ssh(self, _dir: str) -> int:
         if self.offline:
-            self.log.info('Skip mounting %s remotely (offline). Lazy sync', _dir)
-            self._non_failing_sync(_dir)
+            self.info('Skip mounting %s remotely (offline)', _dir)
             return 0
-        self.log.info('Mounting %s remotely', _dir)
+        self._non_failing_sync(_dir)
+        self.info('Mounting %s remotely', _dir)
         for _host in self.remote_hosts:
-            self.log.debug('Select remote host')
-            if self.indented(self._exec, ['ssh', '-o', 'ConnectTimeout 2', '-q', _host, 'hostname']).returncode != 0:
+            self.debug('Select remote host')
+            cmd = ['ssh', '-o', f'ConnectTimeout {self._timeout}', '-q', _host, 'hostname']
+            if self.indented(self._exec, cmd).returncode != 0:
                 continue
             self.remote_hosts = [_host]
             relative_dir = os.path.relpath(_dir, os.environ['HOME'])
-            self.log.debug('SSH mount %s:%s to %s', _host, relative_dir, _dir)
+            self.debug('SSH mount %s:%s to %s', _host, relative_dir, _dir)
             _err = self.indented(self._mkdir, _dir)
             _err += self.indented(self._exec, ['sshfs', f'{_host}:{relative_dir}', _dir]).returncode
             return _err
@@ -124,22 +135,22 @@ class RunFromImage(object):
 
     def _ln(self, orig, dest) -> int:
         orig = os.path.relpath(orig, os.path.dirname(dest))
-        self.log.debug('Symlink %s to %s', orig, dest)
-        if self.unsafe:
+        self.debug('Symlink %s to %s', orig, dest)
+        if not self.pretend:
             try:
                 os.symlink(orig, dest)
             except OSError as e:
-                self.log.error('Unable to symlink %s to %s: %s', orig, dest, e)
+                self.error('Unable to symlink %s to %s: %s', orig, dest, e)
                 return 1
         return 0
 
     def _rm(self, fname) -> int:
-        self.log.debug('Remove %s', fname)
-        if self.unsafe:
+        self.debug('Remove %s', fname)
+        if not self.pretend:
             try:
                 os.remove(fname)
             except OSError as e:
-                self.log.error('Unable to remove %s: %s', fname, e)
+                self.error('Unable to remove %s: %s', fname, e)
                 return 1
         return 0
 
@@ -159,7 +170,7 @@ class RunFromImage(object):
         umount_err = self._umount_local(self.data_link)
         if umount_err == 0:
             if os.path.islink(self.data_link):
-                self.log.info('Removing link %s', self.data_link)
+                self.info('Removing link %s', self.data_link)
                 _err += self._rm(self.data_link)
         else:
             _err += umount_err
