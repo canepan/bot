@@ -20,3 +20,8 @@ class CompareContents(object):
         return '\n'.join(
             difflib.unified_diff(self.old_content.splitlines(), self.new_content.splitlines(), n=1, **self.extra_args)
         )
+
+
+def file_content(filename):
+    with open(filename) as f:
+        return f.read()

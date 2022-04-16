@@ -7,17 +7,29 @@ import sys
 import attr
 
 from ..libs.stools_defaults import host_if_not_me, parse_args
+from .sdiff import show_diffs
 
 
 def main(argv: list = sys.argv[1:]):
-    args = parse_args(argv)
-    _other_hosts = args.hosts
+    if argv[0] == '-diff':
+        extra_args = {'filenames': {'nargs': '+'}}
+        command = show_diffs
+    elif argv[0] == '-exe':
+        extra_args = {'command': {}}
+    elif argv[0] == '-syn':
+        extra_args = {'filenames', {'nargs': '+'}}
+    else:
+        args.log.error('Please specify either -diff or -exe as the first argument')
+        return 1
+    args = parse_args(argv[1:], extra_args)
+    _other_hosts = host_if_not_me(args.hosts)
 
-    for _host in host_if_not_me(args.hosts):
+    return command(args.filenames, _other_hosts, args)
+    for _host in _other_hosts:
         for _fn in args.filenames:
             try:
                 result = subprocess.check_output(
-                    'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; ' 'exit 0'.format(_host.hostname, _fn, args.diff),
+                    'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; exit 0'.format(_host.hostname, _fn, args.diff),
                     stderr=subprocess.STDOUT,
                     shell=True,
                 )

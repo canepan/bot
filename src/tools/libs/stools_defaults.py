@@ -21,11 +21,17 @@ class Host(object):
     ip = attr.ib(type=str)
 
 
-def parse_args(argv=sys.argv[1:], descr='Sync local to remote files with the same name') -> argparse.Namespace:
+def parse_args(argv=sys.argv[1:], extra_args: typing.Dict[str, dict] = None, descr: str = None) -> argparse.Namespace:
+    if extra_args is None:
+        extra_args = {}
+    if descr is None:
+        descr = 'Sync local to remote files with the same name or exec the same command on different hosts'
     parser = LoggingArgumentParser(description=descr, app_name=APP_NAME)
     parser.add_argument('--diff', '-d', default='diff -buB', help='Command (with params) to use for diff')
     parser.add_argument('--hosts', '-H', nargs='+', default=HOSTS)
-    parser.add_argument('filenames', nargs='+')
+    for k, v in extra_args.items():
+        parser.add_argument(k, **v)
+        # parser.add_argument('filenames', nargs='+')
     cfg = parser.parse_args(argv)
     return cfg
 
@@ -44,6 +50,7 @@ def ip_if_not_local(host: str) -> typing.Optional[str]:
 
 
 def host_if_not_me(hosts: list) -> typing.List[Host]:
+    _myhn = socket.gethostname()
     _log.debug('Resolving {}'.format(_myhn))
     for _hn in [oh for oh in hosts if oh != _myhn]:
         _log.debug('Resolving {}'.format(_hn))
