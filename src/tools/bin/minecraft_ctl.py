@@ -147,7 +147,7 @@ class ProcessManager(AllowDenyManager):
         ps_out = subprocess.check_output(['ps', 'auxwww'], stderr=subprocess.PIPE).decode('utf-8')
         pids = {}
         for line in ps_out.splitlines():
-            if any((re.search(t, line) for t in self.terms)):
+            if any([re.search(t, line) for t in self.terms]):
                 pids[int(line.split()[1])] = line
             else:
                 self.log.debug(f'No {self.terms} in {line}')
