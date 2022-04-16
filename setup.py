@@ -21,6 +21,8 @@ setuptools.setup(
     data_files=data_files,
     install_requires=[
         'attrs',
+        'dnspython',
+        'ping3',
         'python-ldap',
         'typing;python_version<"3.7"',
         'ConfigArgParse'
