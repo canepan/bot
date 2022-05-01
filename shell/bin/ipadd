@@ -1,14 +1,8 @@
 #!/bin/bash
-function ip_fqdn() {
-  host -W1 -t ptr $1 | awk '{print "'$1'",$NF}'
-}
-
-export -f ip_fqdn
 
 _addrs="`ip -o -4 add show secondary | awk '/\/24/ {gsub(/\/24/, "", $4); gsub(/192\.168\.0\./, "192.168.19.", $4); print $4}' | sort -u`"
 
 if [ "${mode}" = sh ]; then
-#  echo "${_addrs}" | xargs -P4 -n1 ip_fqdn
   echo "${_addrs}" | xargs -P4 -n1 -I '{}' bash -c "host -W1 -t ptr {} | awk '{print \"{}\",\$NF}'" \; | sed 's/\.19\./.x./' | sort -k2
 else
   echo "${_addrs}"
