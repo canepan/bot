@@ -79,7 +79,7 @@ def hosts_from_dns(dns_zone) -> dict:
         if txt_rdata:
             for record_text in [s.decode('utf-8').lower() for t in txt_rdata for s in t.strings]:
                 if record_text in all_hosts.keys():
-                    all_hosts[record_text].add(record_name.to_text())
+                    all_hosts[record_text].add(record_name.to_text().lower())
     return all_hosts
 
 

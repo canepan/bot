@@ -12,6 +12,7 @@ def mock_run(monkeypatch):
     mock_obj.return_value.stderr = ''
     monkeypatch.setattr('tools.bin.all.run', mock_obj)
     yield mock_obj
+    print(mock_obj.mock_calls)
 
 
 @pytest.fixture
@@ -21,6 +22,7 @@ def mock_socket(monkeypatch):
     mock_obj.gethostname.return_value = 'phoenix'
     monkeypatch.setattr('tools.bin.all.socket', mock_obj)
     yield mock_obj
+    print(mock_obj.mock_calls)
 
 
 def call_for(hname, cmd):
@@ -36,7 +38,7 @@ def test_main(mock_run, mock_socket):
     cmd = 'ls -l'
     main([cmd])
     mock_run.assert_has_calls(
-        [call_for(hname, cmd) for hname in HOSTS['linux'] + HOSTS['mac'] if hname != 'phoenix'], any_order=True
+        [call_for(hname, cmd) for hname in HOSTS['linux'] | HOSTS['mac'] if hname != 'phoenix'], any_order=True
     )
     assert call_for('phoenix', cmd) not in mock_run.call_args_list
 
