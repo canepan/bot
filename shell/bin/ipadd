@@ -1,0 +1,15 @@
+#!/bin/bash
+function ip_fqdn() {
+  host -W1 -t ptr $1 | awk '{print "'$1'",$NF}'
+}
+
+if [ "${mode}" = sh ]; then
+#  for addr in `ip add | awk '/ inet .*\/24/ {gsub(/\/24/, "", $2); gsub(/\.19\./, ".0.", $2); print $2}' | sort -u`; do
+#    ip_fqdn $addr
+#  done | grep -Fv NXDOMAIN
+##  ip add | awk '/ inet .*\/24/ {gsub(/\/24/, "", $2); gsub(/\.19\./, ".0.", $2); print $2}' | sort -u | xargs -P4 ip_fqdn | grep -Fv NXDOMAIN
+  ip add | awk '/ inet .*\/24/ {gsub(/\/24/, "", $2); gsub(/\.19\./, ".0.", $2); print $2}' | sort -u | xargs -P4  -n1 ip_fqdn
+  #| grep -Fv NXDOMAIN
+else
+  ip add | awk '/ inet .*\/24/ {gsub(/\/24/, "", $2); gsub(/\.19\./, ".0.", $2); print $2}' | sort -u
+fi
