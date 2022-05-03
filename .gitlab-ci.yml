@@ -19,6 +19,7 @@ stages:
 
 unit_test:
   extends: .tests
+coverage: "^TOTAL.+?(\d+\%)$"
   artifacts:
     paths:
       - htmlcov/
