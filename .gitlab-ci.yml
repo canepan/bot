@@ -24,6 +24,10 @@ unit_test:
     paths:
       - htmlcov/
 
+unit_test:3.9:
+  image: python:3.9
+  extends: .tests
+
 unit_test:3.8:
   image: python:3.8
   extends: .tests
