@@ -1,5 +1,6 @@
 #!/Volumes/MoviablesX/VMs/tools/bin/python
 import argparse
+import logging
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -9,7 +10,10 @@ from subprocess import run, PIPE
 import dns.query
 import dns.resolver
 import dns.zone
-from tools.libs.parse_args import LoggingArgumentParser
+try:
+    from tools.libs.parse_args import LoggingArgumentParser
+except Exception:
+    from argparse import ArgumentParser as LoggingArgumentParser
 
 HOSTS = {
     'linux': {'phoenix', 'raspy2', 'raspy3', 'raspykey', 'plone-01', 'biglinux', 'octopi', 'pathfinder'},
@@ -31,12 +35,15 @@ class CommandResult(object):
 
 
 class CommandRunner(object):
-    def __init__(self, command):
+    def __init__(self, command, verbose: bool = False):
         self.command = command
+        self.verbose = verbose
 
     def run_remote_command(self, host: str) -> (str, str, str, int):
-        # print(' '.join(['ssh', '-q', '-o StrictHostKeyChecking false', '-o ConnectTimeout 5', host, self.command]))
-        result = run(['ssh', '-q', '-o StrictHostKeyChecking false', '-o ConnectTimeout 5', host, self.command], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+        ssh_options = ['-o', 'StrictHostKeyChecking false', '-o', 'ConnectTimeout 5', '-o', 'BatchMode yes']
+        if not self.verbose:
+            ssh_options.append('-q')
+        result = run(['ssh'] + ssh_options + [host, self.command], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         return (host, CommandResult(result.stdout.rstrip('\n'), result.stderr.rstrip('\n'), result.returncode))
 
 
@@ -50,7 +57,14 @@ def parse_args(argv: list) -> argparse.Namespace:
     p.add_argument('--mac', '-m', action='store_true', help='Only Mac hosts')
     p.add_argument('--extra', '-e', default=[], nargs='*', help='Extra hosts')
     p.add_argument('--with-errors', '-E', action='store_true', help='Also show error output')
-    return p.parse_args(argv)
+    cfg = p.parse_args(argv)
+    try:
+        cfg.log.debug('Using LoggingArgumentParser')
+    except AttributeError:
+        cfg.log = logging.getLogger()
+        cfg.log.addHandler(logging.StreamHandler(sys.stdout))
+        cfg.log.setLevel(logging.INFO)
+    return cfg
 
 
 @lru_cache(maxsize=1)
@@ -85,7 +99,7 @@ def hosts_from_dns(dns_zone) -> dict:
 
 def main(argv: list = sys.argv[1:]):
     cfg = parse_args(argv)
-    cr = CommandRunner(cfg.command)
+    cr = CommandRunner(cfg.command, verbose=cfg.with_errors)
     if cfg.dns_zone:
         all_hosts_dict = hosts_from_dns(cfg.dns_zone)
     else:
@@ -103,7 +117,7 @@ def main(argv: list = sys.argv[1:]):
         results = tpool.map(cr.run_remote_command, hosts, timeout=5)
     for result in results:
         if cfg.with_errors or result[1].returncode == 0:
-            print(result[1].text(prefix=f'{result[0]}: '))
+            cfg.log.info(result[1].text(prefix=f'{result[0]}: '))
 
 
 if __name__ == '__main__':
