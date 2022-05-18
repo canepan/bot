@@ -7,9 +7,12 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from subprocess import run, PIPE
 
-import dns.query
-import dns.resolver
-import dns.zone
+try:
+    import dns.query
+    import dns.resolver
+    import dns.zone
+except ModuleNotFoundError:
+    dns = None
 try:
     from tools.libs.parse_args import LoggingArgumentParser
 except Exception:
@@ -85,16 +88,19 @@ def extend_if_not_me(hosts, hosts_to_add: list) -> list:
 
 
 def hosts_from_dns(dns_zone) -> dict:
-    all_hosts = {'linux': set(), 'mac': set()}
-    soa_answer = dns.resolver.resolve(dns_zone, 'SOA')
-    full_zone = dns.zone.from_xfr(dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone))
-    for record_name, dns_record in full_zone.items():
-        txt_rdata = dns_record.get_rdataset(dns.rdataclass.IN, dns.rdatatype.TXT)
-        if txt_rdata:
-            for record_text in [s.decode('utf-8').lower() for t in txt_rdata for s in t.strings]:
-                if record_text in all_hosts.keys():
-                    all_hosts[record_text].add(record_name.to_text().lower())
-    return all_hosts
+    try:
+        soa_answer = dns.resolver.resolve(dns_zone, 'SOA')
+        full_zone = dns.zone.from_xfr(dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone))
+        all_hosts = {'linux': set(), 'mac': set()}
+        for record_name, dns_record in full_zone.items():
+            txt_rdata = dns_record.get_rdataset(dns.rdataclass.IN, dns.rdatatype.TXT)
+            if txt_rdata:
+                for record_text in [s.decode('utf-8').lower() for t in txt_rdata for s in t.strings]:
+                    if record_text in all_hosts.keys():
+                        all_hosts[record_text].add(record_name.to_text().lower())
+        return all_hosts
+    except AttributeError:
+        return HOSTS
 
 
 def main(argv: list = sys.argv[1:]):
