@@ -1,10 +1,12 @@
 import json
 import os
 import re
+import subprocess
 import sys
 from collections import defaultdict
 
 from tools.libs.parse_args import LoggingArgumentParser
+from tools.libs.stools_defaults import host_if_not_me
 
 SERVICE_CONFIGS = {
     'dns': '/etc/bind',
@@ -13,6 +15,7 @@ SERVICE_CONFIGS = {
     'smtp': '/etc/postfix.conf',
     'wifi': '/etc/hostapd.conf',
 }
+CACHE_DIR = os.path.join(os.environ['HOME'], '.service_map')
 
 
 def parse_args(argv: list):
@@ -26,7 +29,11 @@ def parse_args(argv: list):
 
 def decode_first_line(filename: str) -> dict:
     with open(filename, 'r') as f:
-        return json.loads(next(f).lstrip('#').strip())
+        try:
+            return json.loads(f.readline().lstrip('#').strip())
+        except json.decoder.JSONDecodeError as e:
+            print(f'Error while decoding {filename} ({f.read()}): {e}')
+            raise
 
 
 def error(text: str) -> str:
@@ -58,6 +65,7 @@ class ServiceCatalog(object):
                         self.hosts[host].append('keepalived')
 
     def file_differs(self, filename, hosts: list) -> bool:
+        # re.sub(r'\.?(canne|)$', '.canne', host)
         if 'raspy2' in hosts:
             return True
         return False
@@ -77,6 +85,33 @@ class ServiceCatalog(object):
                 return self.file_differs(service_config, hosts)
         except Exception:
             return False
+
+
+class ServiceConfig(dict):
+    def __init__(self, host):
+        self.host = host
+
+    def __get__(self, key):
+        try:
+            return super.__get__(key)
+        except Exception:
+            self[key] = self._retrieve_config(self.host, key)
+
+    def _retrieve_config(self, filename):
+        cache_file = os.path.join(CACHE_DIR, self.host)
+        cache_data = None
+        try:
+            with open(cache_file, 'r') as cache_file:
+                cache_data = json.load(cache_file)[filename]
+        except Exception as e:
+            self.log.debug(f"Cache file {cache_file} does't contain useful data ({e})")
+        if cache_data is None:
+            cache_data = remote_command(self.host, ['cat', filename])
+        return cache_data
+
+
+def remote_command(host: str, cmd: list):
+    return subprocess.check_output(['ssh', host] + cmd).decode('utf-8')
 
 
 def main(argv: list = sys.argv[1:]):
