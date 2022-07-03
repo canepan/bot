@@ -1,9 +1,12 @@
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
 from collections import defaultdict
+
+import attr
 
 from tools.libs.parse_args import LoggingArgumentParser
 from tools.libs.stools_defaults import host_if_not_me
@@ -40,12 +43,56 @@ def error(text: str) -> str:
     return f'Error: {text}'
 
 
+@attr.s(repr=False, frozen=True)
+class ServiceConfig(dict):
+    '''
+    This is a dict with a `host` property to identify which host contains the configuration in the dict.
+    The keys of the dict are filenames, while the values are the contents of the files.
+    A cache is maintained in `${HOME}/.service_map/<hostname>.json`
+    '''
+    host: str = attr.ib()
+    service_name: str = attr.ib()
+    log: logging.Logger = attr.ib(default=logging.getLogger(__name__))
+
+    def __getitem__(self, key):
+        try:
+            return super().__getitem__(key)
+        except Exception:
+            self[key] = self._retrieve_config(key)
+        return super().__getitem__(key)
+
+    def _retrieve_config(self, filename):
+        if not os.path.isdir(CACHE_DIR):
+            os.mkdir(CACHE_DIR)
+        cache_file_name = os.path.join(CACHE_DIR, f'{self.host}.json')
+        cache_data = None
+        all_data = {}
+        try:
+            with open(cache_file_name, 'r') as cache_file:
+                all_data = json.load(cache_file)
+                cache_data = all_data[filename]
+        except Exception as e:
+            self.log.debug(f"Cache file {cache_file_name} does't contain useful data ({e})")
+        if cache_data is None:
+            cache_data = remote_command(self.host, ['cat', filename])
+            all_data[filename] = cache_data
+            with open(cache_file_name, 'w') as cache_file:
+                json.dump(all_data, cache_file)
+        return cache_data
+
+
 class ServiceCatalog(object):
-    def __init__(self, ka_dir: str):
+    def __init__(self, ka_dir: str, log: logging.Logger):
+        self.log = log
+        # cache for the `ServiceConfig`s
+        self.service_configs = dict()
+        # {service: [host1, host2, ...]}
         self.services = {'keepalived': []}
-        self.hosts = defaultdict(list)
+        # {host: [service1, service2, ...]}
+        self.hosts = defaultdict(set)
         for dirpath, dirnames, filenames in os.walk(ka_dir):
             for filename in filenames:
+                # TODO: replace with vrrp service name from conf
                 service_name = re.sub(r'\.conf$', '', filename)
                 service_dict = decode_first_line(os.path.join(dirpath, filename))
                 self.services[service_name] = service_dict['vrrp']
@@ -60,14 +107,18 @@ class ServiceCatalog(object):
                     [h for h in service_dict['vrrp'] if h not in self.services['keepalived']]
                 )
                 for host in service_dict['vrrp']:
-                    self.hosts[host].append(service_name)
-                    if 'keepalived' not in self.hosts[host]:
-                        self.hosts[host].append('keepalived')
+                    self.hosts[host].add(ServiceConfig(host, service_name))
+                    self.hosts[host].add(ServiceConfig(host, 'keepalived'))
 
-    def file_differs(self, filename, hosts: list) -> bool:
+    def file_differs(self, filename, hosts: list, service_name: str) -> bool:
         # re.sub(r'\.?(canne|)$', '.canne', host)
-        if 'raspy2' in hosts:
-            return True
+        for host in hosts:
+            if host not in self.service_configs:
+                self.log.debug(f'Adding {host} to cache')
+                self.service_configs[host] = ServiceConfig(host, service_name)
+        for host in hosts[1:]:
+            if self.service_configs[host][filename] != self.service_configs[hosts[0]][filename]:
+                return True
         return False
 
     def config_differs(self, service_name, hosts: list = None) -> bool:
@@ -77,37 +128,15 @@ class ServiceCatalog(object):
             service_config = SERVICE_CONFIGS[service_name]
             if os.path.isdir(service_config):
                 return any([
-                    self.file_differs(os.path.join(dirpath, filename), hosts)
+                    self.file_differs(os.path.join(dirpath, filename), hosts, service_name)
                     for dirpath, dirnames, filenames in os.walk(service_config)
                     for filename in filenames
                 ])
             elif os.path.isfile(service_config):
                 return self.file_differs(service_config, hosts)
-        except Exception:
-            return False
-
-
-class ServiceConfig(dict):
-    def __init__(self, host):
-        self.host = host
-
-    def __get__(self, key):
-        try:
-            return super.__get__(key)
-        except Exception:
-            self[key] = self._retrieve_config(self.host, key)
-
-    def _retrieve_config(self, filename):
-        cache_file = os.path.join(CACHE_DIR, self.host)
-        cache_data = None
-        try:
-            with open(cache_file, 'r') as cache_file:
-                cache_data = json.load(cache_file)[filename]
         except Exception as e:
-            self.log.debug(f"Cache file {cache_file} does't contain useful data ({e})")
-        if cache_data is None:
-            cache_data = remote_command(self.host, ['cat', filename])
-        return cache_data
+            self.log.debug(f'Exception while comparing configs: {e}')
+            return False
 
 
 def remote_command(host: str, cmd: list):
@@ -116,11 +145,11 @@ def remote_command(host: str, cmd: list):
 
 def main(argv: list = sys.argv[1:]):
     cfg = parse_args(argv)
-    catalog = ServiceCatalog(cfg.ka_dir)
+    catalog = ServiceCatalog(cfg.ka_dir, cfg.log)
     if cfg.hosts:
-        print(json.dumps(catalog.hosts, indent=2))
+        cfg.log.info(json.dumps(catalog.hosts, indent=2))
     else:
-        print(json.dumps(catalog.services, indent=2))
+        cfg.log.info(json.dumps(catalog.services, indent=2))
     return 0
 
 
