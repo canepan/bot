@@ -21,6 +21,7 @@ def mock_os_chmod(monkeypatch):
     mock_obj.side_effect = chmod
     monkeypatch.setattr('tools.bin.minecraft_ctl.os.chmod', mock_obj)
     yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
 
 
 @pytest.fixture
@@ -28,6 +29,7 @@ def mock_os_kill(monkeypatch):
     mock_obj = mock.MagicMock(name='kill')
     monkeypatch.setattr('tools.bin.minecraft_ctl.os.kill', mock_obj)
     yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
 
 
 @pytest.fixture
@@ -36,13 +38,14 @@ def mock_os_stat(monkeypatch):
     mock_obj.side_effect = os_stat
     monkeypatch.setattr('tools.bin.minecraft_ctl.os.stat', mock_obj)
     yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
 
 
 @pytest.fixture
 def mock_subprocess(monkeypatch):
-    mock_subprocess = mock.MagicMock(name='subprocess')
+    mock_obj = mock.MagicMock(name='subprocess')
     # 1st is Linux format, 2nd is OSX
-    mock_subprocess.check_output.side_effect = (
+    mock_obj.check_output.side_effect = (
         (
             b'''USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\n'''
             b'''root         1  0.0  0.0 195212  7788 ?        Ss   Oct31   0:40 /sbin/init\n'''
@@ -79,8 +82,9 @@ def mock_subprocess(monkeypatch):
         ),
         (b''),
     )
-    monkeypatch.setattr('tools.bin.minecraft_ctl.subprocess', mock_subprocess)
-    yield mock_subprocess
+    monkeypatch.setattr('tools.bin.minecraft_ctl.subprocess', mock_obj)
+    yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
 
 
 @pytest.fixture
@@ -187,7 +191,7 @@ def test_main_on(mock_os_chmod, mock_subprocess):
     )
 
 
-@pytest.mark.xfail
+@pytest.mark.xfail(reason='mock_os_kill.assert_called_with(15) not called')
 def test_main_off(mock_os_chmod, mock_os_kill, mock_subprocess):
     main(['off'], prog_name='minecraft_ctl')
     mock_os_chmod.assert_has_calls([mock.call('/Applications/Minecraft.app/Contents/MacOS/launcher', 0)])
@@ -217,8 +221,6 @@ def test_main_off(mock_os_chmod, mock_os_kill, mock_subprocess):
         ],
         any_order=True,
     )
-    print(mock_subprocess.mock_calls)
-    print(f'mock_os_kill: {mock_os_kill.mock_calls}')
     mock_os_kill.assert_called_with(15)
 
 
