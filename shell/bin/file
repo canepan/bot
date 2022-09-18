@@ -1,0 +1,26 @@
+#!/bin/bash
+_filter() {
+  if [ -n "$VERBOSE" ]; then
+    grep -v -e "^ *$" -e "^MPlayer" -e "^Playing" -e "^Load subtitles" -e "^Opening" -e "^ID" -e "^Selected" -e null -e libavformat -e libavcodec -e "^MPX_" -e 'set volume' -e "^Starting pl" -e "^Exit" | sed 's|^|'"${_file}"': |'
+  else
+#    grep -e ^VIDEO: -e ^AUDIO:
+    sed -n 's/^VIDEO:/ video:/p ; s/^AUDIO:/ audio:/p' | tr '\n' , | sed 's|^|'"${_file}"':|'
+  fi
+}
+
+for _d in "/Applications/MPlayerX.app/Contents/Resources/MPlayerX.mplayer.bundle/Contents/Resources/x86_64"; do
+  [ -d "$_d" ] && PATH="${PATH}:${_d}"
+done
+for _file in "$@"; do
+  case "$_file" in
+    *.mkv|*.mp4)
+      mplayer -vo null -ao null -identify -frames 0 "$_file" 2>&1 | _filter
+      echo
+      ;;
+    *)
+      files="${files} ${_file}"
+      ;;
+  esac
+  shift
+done
+[ -n "${files}" ] && /usr/bin/file ${files}
