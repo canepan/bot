@@ -1,24 +1,12 @@
 import argparse
-import logging
-import socket
 import sys
-import typing
-from functools import lru_cache
 
-import attr
-
-from ..libs.parse_args import LoggingArgumentParser
+from .net_utils import gethostbyname, ip_if_not_local, host_if_not_me
+from .parse_args import LoggingArgumentParser
 
 
 APP_NAME = 'canepan.tools'
 HOSTS = ['phoenix', 'raspy2', 'raspy3']
-_log = logging.getLogger(APP_NAME)
-
-
-@attr.s
-class Host(object):
-    hostname = attr.ib(type=str)
-    ip = attr.ib(type=str)
 
 
 def parse_args(argv=sys.argv[1:], descr='Sync local to remote files with the same name') -> argparse.Namespace:
@@ -28,28 +16,3 @@ def parse_args(argv=sys.argv[1:], descr='Sync local to remote files with the sam
     parser.add_argument('filenames', nargs='+')
     cfg = parser.parse_args(argv)
     return cfg
-
-
-@lru_cache(maxsize=5)
-def gethostbyname(hn: str) -> str:
-    return socket.gethostbyname(hn)
-
-
-def ip_if_not_local(host: str) -> typing.Optional[str]:
-    """ return the resolved IP if it's not the local IP """
-    _ip = gethostbyname(host)
-    my_host = socket.gethostname()
-    if my_host != host and _ip != gethostbyname(my_host):
-        return _ip
-
-
-def host_if_not_me(hosts: list) -> typing.List[Host]:
-    _log.debug('Resolving {}'.format(_myhn))
-    for _hn in [oh for oh in hosts if oh != _myhn]:
-        _log.debug('Resolving {}'.format(_hn))
-        try:
-            _ip = gethostbyname(_hn)
-            if _ip:
-                yield Host(_hn, _ip)
-        except socket.gaierror as e:
-            print('Error resolving {}: {}'.format(_hn, e))
