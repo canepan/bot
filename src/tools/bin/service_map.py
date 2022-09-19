@@ -9,7 +9,7 @@ from collections import defaultdict
 import attr
 
 from tools.libs.parse_args import LoggingArgumentParser
-from tools.libs.stools_defaults import host_if_not_me
+from tools.libs.net_utils import ip_if_not_local
 
 SERVICE_CONFIGS = {
     'dns': '/etc/bind',
@@ -43,7 +43,7 @@ def error(text: str) -> str:
     return f'Error: {text}'
 
 
-@attr.s(repr=False, frozen=True)
+@attr.s(repr=False, hash=True)
 class ServiceConfig(dict):
     '''
     This is a dict with a `host` property to identify which host contains the configuration in the dict.
@@ -67,18 +67,31 @@ class ServiceConfig(dict):
         cache_file_name = os.path.join(CACHE_DIR, f'{self.host}.json')
         cache_data = None
         all_data = {}
-        try:
-            with open(cache_file_name, 'r') as cache_file:
-                all_data = json.load(cache_file)
-                cache_data = all_data[filename]
-        except Exception as e:
-            self.log.debug(f"Cache file {cache_file_name} does't contain useful data ({e})")
+        if ip_if_not_local(self.host):
+            try:
+                with open(cache_file_name, 'r') as cache_file:
+                    all_data = json.load(cache_file)
+                    cache_data = all_data[filename]
+            except Exception as e:
+                self.log.debug(f"Cache file {cache_file_name} does't contain useful data ({e})")
+        else:
+             self.host = None
         if cache_data is None:
             cache_data = remote_command(self.host, ['cat', filename])
             all_data[filename] = cache_data
             with open(cache_file_name, 'w') as cache_file:
                 json.dump(all_data, cache_file)
         return cache_data
+
+    def __repr__(self):
+        print(f'repr {self.host}:{self.service_name}')
+        if self.service_name in SERVICE_CONFIGS:
+            return self[SERVICE_CONFIGS[self.service_name]]
+        return super().__repr__()
+
+    def __str__(self):
+        print(f'str {self.host}:{self.service_name}')
+        return super().__str__()
 
 
 class ServiceCatalog(object):
@@ -140,14 +153,16 @@ class ServiceCatalog(object):
 
 
 def remote_command(host: str, cmd: list):
-    return subprocess.check_output(['ssh', host] + cmd).decode('utf-8')
+    if host:
+        cmd = ['ssh', host] + cmd
+    return subprocess.check_output(cmd).decode('utf-8')
 
 
 def main(argv: list = sys.argv[1:]):
     cfg = parse_args(argv)
     catalog = ServiceCatalog(cfg.ka_dir, cfg.log)
     if cfg.hosts:
-        cfg.log.info(json.dumps(catalog.hosts, indent=2))
+        cfg.log.info(json.dumps(catalog.hosts, indent=2, default=str))
     else:
         cfg.log.info(json.dumps(catalog.services, indent=2))
     return 0

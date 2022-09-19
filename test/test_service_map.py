@@ -33,6 +33,15 @@ def mapped_mock_open(file_contents_dict):
 
 
 @pytest.fixture
+def mock_ip_if_not_local(monkeypatch):
+    mock_obj = mock.Mock(name='ip_if_not_local')
+    mock_obj.check_output.side_effect = ['127.0.0.1', '127.0.0.1', None]
+    monkeypatch.setattr('tools.bin.service_map.ip_if_not_local', mock_obj)
+    yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
+
+
+@pytest.fixture
 def mock_open(monkeypatch):
     mock_obj = mapped_mock_open(
         {
@@ -69,7 +78,7 @@ def mock_walk(monkeypatch):
     print(f'{mock_obj} calls: {mock_obj.mock_calls}')
 
 
-def test_ServiceCatalog(mock_open, mock_subprocess, mock_walk):
+def test_ServiceCatalog(mock_ip_if_not_local, mock_open, mock_subprocess, mock_walk):
     sc = ServiceCatalog('/etc/keepalived/keepalived.d', mock.Mock(name='log'))
     assert sc.services == {
         'aaa': ['phoenix'],
@@ -82,10 +91,12 @@ def test_ServiceCatalog(mock_open, mock_subprocess, mock_walk):
         'raspy2': {ServiceConfig('raspy2', 'foobar'), ServiceConfig('raspy2', 'keepalived')},
         'other': {ServiceConfig('other', 'zzz'), ServiceConfig('other', 'keepalived')},
     }
-    mock_subprocess.check_output.assert_called_with(['ssh', 'testhost', 'cat', 'base_dir.d/testfile.conf'])
+    mock_open.assert_called_with('base_dir.d/zzz.conf', 'r')
+    # print(sc.hosts)
+    # assert False
 
 
-def test_ServiceConfig(mock_open, mock_subprocess, mock_walk):
+def test_ServiceConfig(mock_ip_if_not_local, mock_open, mock_subprocess, mock_walk):
     sc = ServiceConfig('testhost', 'keepalived')
     assert sc['base_dir/testfile.conf'] == 'my_content'
     mock_subprocess.check_output.assert_called_with(['ssh', 'testhost', 'cat', 'base_dir/testfile.conf'])
