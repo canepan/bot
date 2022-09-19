@@ -29,14 +29,11 @@ def ip_if_not_local(host: str) -> typing.Optional[str]:
 
 
 def host_if_not_me(hosts: list) -> typing.List[Host]:
-    _myhn = gethostname()
+    _myhn = socket.gethostname()
     _log.debug('Resolving {}'.format(_myhn))
     for _hn in [oh for oh in hosts if oh != _myhn]:
         _log.debug('Resolving {}'.format(_hn))
         try:
-            _ip = gethostbyname(_hn)
-            if _ip:
-                yield Host(_hn, _ip)
+            yield Host(_hn, gethostbyname(_hn))
         except socket.gaierror as e:
-            print('Error resolving {}: {}'.format(_hn, e))
-
+            _log.error(f'Error resolving {_hn}: {e}')
