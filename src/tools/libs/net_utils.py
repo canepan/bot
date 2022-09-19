@@ -38,5 +38,5 @@ def host_if_not_me(hosts: list) -> typing.List[Host]:
             if _ip:
                 yield Host(_hn, _ip)
         except socket.gaierror as e:
-            print('Error resolving {}: {}'.format(_hn, e))
+            _log.error('Error resolving {}: {}'.format(_hn, e))
 

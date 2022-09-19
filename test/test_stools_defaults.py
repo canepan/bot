@@ -9,7 +9,7 @@ def mock_socket(monkeypatch):
     mock_socket = mock.Mock(name='socket')
     mock_socket.gethostbyname.side_effect = ['1.1.1.1', '2.2.2.2']
     mock_socket.gethostname.return_value = 'local_host'
-    monkeypatch.setattr('tools.libs.stools_defaults.socket', mock_socket)
+    monkeypatch.setattr('tools.libs.net_utils.socket', mock_socket)
     yield mock_socket
 
 
