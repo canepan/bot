@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
 
 import attr
 
@@ -61,6 +62,13 @@ class ServiceConfig(dict):
             self[key] = self._retrieve_config(key)
         return super().__getitem__(key)
 
+    def cache_expired(self, filename, cache_life=timedelta(days=1)) -> bool:
+        if os.path.exists(filename):
+            curr_time = datetime.now()
+            cache_time = os.stat(filename).st_mtime
+            return curr_time > datetime.fromtimestamp(cache_time) + cache_life
+        return True
+
     def _retrieve_config(self, filename):
         if not os.path.isdir(CACHE_DIR):
             os.mkdir(CACHE_DIR)
@@ -76,7 +84,7 @@ class ServiceConfig(dict):
                 self.log.debug(f"Cache file {cache_file_name} does't contain useful data ({e})")
         else:
              self.host = None
-        if cache_data is None:
+        if (cache_data is None) or self.cache_expired(filename):
             cache_data = remote_command(self.host, ['cat', filename])
             all_data[filename] = cache_data
             with open(cache_file_name, 'w') as cache_file:
