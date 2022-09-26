@@ -43,7 +43,7 @@ def get_logger(app_name: str, verbose: bool, quiet: bool, with_file: str = None)
                           the record is emitted
     """
     log = logging.getLogger(app_name)
-    stderr_handler = _stream_handler(logstream=sys.stderr, loglevel=logging.INFO, logname='stderr')
+    stderr_handler = _stream_handler(logstream=sys.stderr, loglevel=logging.DEBUG, logname='stderr')
     log.addHandler(stderr_handler)
     stdout_handler = _stream_handler(
         logstream=sys.stdout, loglevel=logging.INFO, logname='stdout', logfilters=[MaxLevelFilter(logging.INFO)]
