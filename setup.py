@@ -23,10 +23,12 @@ setuptools.setup(
         'attrs',
         'dnspython',
         'ping3',
-        'python-ldap',
         'typing;python_version<"3.7"',
         'ConfigArgParse'
     ],
+    extras_requires={
+        'ldap': 'python-ldap',
+    },
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
@@ -37,10 +39,10 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "all.py = tools.bin.all:main",
-            "config_e2g = tools.bin.config_proxy:main", # compat
+            "config_e2g = tools.bin.config_proxy:main",  # compat
             "config_proxy = tools.bin.config_proxy:main",
             "freedns.py = tools.bin.freedns:main",
-            "ldap_browse = tools.bin.ldap_browser:main",
+            "ldap_browse = tools.bin.ldap_browser:main [ldap]",
             "sdiff.py = tools.bin.sdiff:main",
             "slapd_log = tools.bin.slapd_log:main",
             "ssync.py = tools.bin.ssync:main",
@@ -48,5 +50,3 @@ setuptools.setup(
         ],
     }
 )
-
-
