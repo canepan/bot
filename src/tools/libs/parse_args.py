@@ -21,7 +21,7 @@ class LoggingArgumentParser(configargparse.ArgumentParser):
 
 def arg_parser(description: str) -> configargparse.ArgumentParser:
     parser = configargparse.ArgumentParser(
-        description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description=description, formatter_class=configargparse.ArgumentDefaultsHelpFormatter
     )
     return parser
 
