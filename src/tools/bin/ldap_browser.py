@@ -92,7 +92,7 @@ class ProcessText(ItemProcessor):
         lines = []
         if self.ldap_data.isascii():
             lines.append(f'{self.indent * "  "}{self.ldap_data}')
-        elif verbose:
+        elif self.verbose:
             lines.append(f'{self.indent * "  "}{repr(self.ldap_data)}')
         return lines
 
