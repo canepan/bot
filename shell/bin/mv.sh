@@ -25,6 +25,7 @@ elif [ -f "${src}" ] && [ ! -r "${dst}/$(basename "${src}")" ]; then
   dst="${dst}/$(basename "${src}")"
 else
   echo 'Source must be either files or dirs and dest must not exist'
+  echo "Params: '${src}' and '${dst}'"
   exit 2
 fi
 mv -vi "${src}" "${dst}"
