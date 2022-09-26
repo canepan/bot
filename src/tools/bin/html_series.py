@@ -74,7 +74,7 @@ class HtmlSeries(object):
     def html(self) -> str:
         if self._html is None:
             html_vars = {
-                'title': os.path.basename(self.series_dir),
+                'title': os.path.basename(self.series_dir.strip('/')),
             }
             lines_list = list()
             for season in self.seasons:

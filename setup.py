@@ -42,6 +42,7 @@ setuptools.setup(
             "config_e2g = tools.bin.config_proxy:main",  # compat
             "config_proxy = tools.bin.config_proxy:main",
             "freedns.py = tools.bin.freedns:main",
+            "html-series = tools.bin.html_series:main",
             "ldap_browse = tools.bin.ldap_browser:main [ldap]",
             "sdiff.py = tools.bin.sdiff:main",
             "slapd_log = tools.bin.slapd_log:main",
