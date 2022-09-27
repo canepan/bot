@@ -29,7 +29,7 @@ TEMPLATE_LINE = '      <a href="{season}/" title="{episodes} episodi"><img src="
 
 def parse_args(argv: list) -> Namespace:
     parser = LoggingArgumentParser(app_name=__name__)
-    parser.add_argument('series_dir', nargs='?', default=os.curdir)
+    parser.add_argument('series_dir', nargs='+', default=os.curdir)
     parser.add_argument('--force', '-f', action='store_true')
     return parser.parse_args(argv)
 
@@ -91,7 +91,7 @@ class HtmlSeries(object):
                 html_vars['season'] = season
                 lines_list.append(TEMPLATE_LINE.format(**html_vars))
             lines = '\n'.join(lines_list)
-            self._html = f'{TEMPLATE_PRE.format(**html_vars)}{lines}{TEMPLATE_POST}.format(**html_vars)'
+            self._html = f'{TEMPLATE_PRE.format(**html_vars)}{lines}{TEMPLATE_POST.format(**html_vars)}'
         return self._html
 
     def save_html(self, force=False) -> bool:
@@ -112,14 +112,17 @@ class HtmlSeries(object):
 
 def main(argv: list = sys.argv[1:]):
     cfg = parse_args(argv)
-    html_series = HtmlSeries(cfg.series_dir, cfg.log)
-    if not html_series.check_dir():
-        return 2
-    cfg.log.debug(html_series.html)
-    cfg.log.info(f'Saving index.html for {html_series}')
-    if(html_series.save_html(force=cfg.force)):
-        return 0
-    return 3
+    result = 0
+    for series_dir in cfg.series_dir:
+        html_series = HtmlSeries(series_dir, cfg.log)
+        if not html_series.check_dir():
+            result += 2
+        else:
+            cfg.log.debug(html_series.html)
+            cfg.log.info(f'Saving index.html for {html_series}')
+            if not html_series.save_html(force=cfg.force):
+                result += 3
+    return result
 
 
 if __name__ == '__main__':
