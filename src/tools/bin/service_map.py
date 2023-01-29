@@ -13,10 +13,11 @@ from tools.libs.parse_args import LoggingArgumentParser
 from tools.libs.net_utils import ip_if_not_local
 
 SERVICE_CONFIGS = {
-    'dns': '/etc/bind',
-    'keepalived': '/etc/keepalived',
-    'sflask': '/etc/flask.conf',
-    'smtp': '/etc/postfix.conf',
+    'dns': '/etc/bind/named.conf',
+    'keepalived': '/etc/keepalived/',
+    'flask': '/home/nicola/dev/flask/canepa/apps/main.py',
+    'openvpn': '/etc/openvpn/canne.conf',
+    'smtp': '/etc/postfix/main.cf',
     'wifi': '/etc/hostapd.conf',
 }
 CACHE_DIR = os.path.join(os.environ['HOME'], '.service_map')
@@ -51,6 +52,7 @@ class ServiceConfig(dict):
     The keys of the dict are filenames, while the values are the contents of the files.
     A cache is maintained in `${HOME}/.service_map/<hostname>.json`
     '''
+
     host: str = attr.ib()
     service_name: str = attr.ib()
     log: logging.Logger = attr.ib(default=logging.getLogger(__name__))
@@ -75,7 +77,8 @@ class ServiceConfig(dict):
         cache_file_name = os.path.join(CACHE_DIR, f'{self.host}.json')
         cache_data = None
         all_data = {}
-        if ip_if_not_local(self.host):
+        self.log.debug(f'Checking if {self.host.strip("*")} is local')
+        if ip_if_not_local(self.host.strip('*')):
             try:
                 with open(cache_file_name, 'r') as cache_file:
                     all_data = json.load(cache_file)
@@ -83,9 +86,9 @@ class ServiceConfig(dict):
             except Exception as e:
                 self.log.debug(f"Cache file {cache_file_name} does't contain useful data ({e})")
         else:
-             self.host = None
+            self.host = None
         if (cache_data is None) or self.cache_expired(filename):
-            cache_data = remote_command(self.host, ['cat', filename])
+            cache_data = remote_command(self.host.strip('*') if self.host else None, ['cat', filename])
             all_data[filename] = cache_data
             with open(cache_file_name, 'w') as cache_file:
                 json.dump(all_data, cache_file)
@@ -93,13 +96,50 @@ class ServiceConfig(dict):
 
     def __repr__(self):
         print(f'repr {self.host}:{self.service_name}')
-        if self.service_name in SERVICE_CONFIGS:
+        if self.service_name != 'keepalived' and self.service_name in SERVICE_CONFIGS:
             return self[SERVICE_CONFIGS[self.service_name]]
         return super().__repr__()
 
     def __str__(self):
         print(f'str {self.host}:{self.service_name}')
         return super().__str__()
+
+
+class KAService(object):
+    def __init__(self, filename: str):
+        self._filename = filename
+        self._service_dict = None
+        self._service_name = None
+
+    @property
+    def filename(self):
+        return self._filename
+
+    @property
+    def hosts(self):
+        if self._hosts is None:
+            self._hosts = self.service_dict.get('vrrp', [])
+        return self._hosts
+
+    @property
+    def service_dict(self):
+        if self._service_dict is None:
+            self._service_dict = decode_first_line(self.filename)
+        return self._service_dict
+
+    @property
+    def service_name(self):
+        if self._service_name is None:
+            # TODO: replace with vrrp service name from conf
+            self._service_name = re.sub(r'\.conf$', '', self.filename)
+        return self._service_name
+
+    def __repr__(self):
+        # return f'{self.service_name}: {", ".join((i * "*") + h for i, h in enumerate(self.hosts))}'
+        # repr_hosts = (i * "*") + h for i, h in enumerate(self.hosts)
+        print(f"{len(self.hosts)} in {self}")
+        repr_hosts = [f'{i * "*"}{h}' for i, h in enumerate(self.hosts)]
+        return f'{self.service_name}: {", ".join(repr_hosts)}'
 
 
 class ServiceCatalog(object):
@@ -117,19 +157,19 @@ class ServiceCatalog(object):
                 service_name = re.sub(r'\.conf$', '', filename)
                 service_dict = decode_first_line(os.path.join(dirpath, filename))
                 self.services[service_name] = service_dict['vrrp']
-                for i, host in enumerate(service_dict['vrrp'][1:]):
-                    service_dict['vrrp'][i + 1] = f"{i * '*'}{service_dict['vrrp'][i + 1]}"
+                for i, host in enumerate(service_dict['vrrp']):
+                    service_dict['vrrp'][i] = f"{i * '*'}{service_dict['vrrp'][i]}"
                     if self.config_differs(service_name, [service_dict['vrrp'][0], host]):
-                        service_dict['vrrp'][i + 1] = error(service_dict['vrrp'][i + 1])
-                if self.config_differs(service_name):
-                    for i in range(len(service_dict['vrrp'])):
-                        pass
+                        service_dict['vrrp'][i] = error(service_dict['vrrp'][i])
+                # if self.config_differs(service_name):
+                #     for i in range(len(service_dict['vrrp'])):
+                #         pass
                 self.services['keepalived'].extend(
                     [h for h in service_dict['vrrp'] if h not in self.services['keepalived']]
                 )
                 for host in service_dict['vrrp']:
-                    self.hosts[host].add(ServiceConfig(host, service_name))
                     self.hosts[host].add(ServiceConfig(host, 'keepalived'))
+                    self.hosts[host].add(ServiceConfig(host, service_name))
 
     def file_differs(self, filename, hosts: list, service_name: str) -> bool:
         # re.sub(r'\.?(canne|)$', '.canne', host)
@@ -144,15 +184,17 @@ class ServiceCatalog(object):
 
     def config_differs(self, service_name, hosts: list = None) -> bool:
         if hosts is None:
-            hosts = self.services[service_name]
+            hosts = self.services[service_name]['vrrp']
         try:
             service_config = SERVICE_CONFIGS[service_name]
-            if os.path.isdir(service_config):
-                return any([
-                    self.file_differs(os.path.join(dirpath, filename), hosts, service_name)
-                    for dirpath, dirnames, filenames in os.walk(service_config)
-                    for filename in filenames
-                ])
+            if service_config.endswith('/') or os.path.isdir(service_config):
+                return any(
+                    [
+                        self.file_differs(os.path.join(dirpath, filename), hosts, service_name)
+                        for dirpath, dirnames, filenames in os.walk(service_config)
+                        for filename in filenames
+                    ]
+                )
             elif os.path.isfile(service_config):
                 return self.file_differs(service_config, hosts)
         except Exception as e:
