@@ -10,19 +10,23 @@ def main(argv: list = sys.argv[1:]) -> int:
         r'pool returned|[Cc]ipher|/sbin/ip|VERIFY OK|ifconfig_pool_set|peer info|Using [0-9]+ bit message hash|'
         r'library versions: OpenSSL|TUN/TAP device tun[0-9]+ opened|TCPv4_SERVER link'
     )
+    skipped = 0
     for log_file in argv:
         lines = []
         uniques = dict()
         if not os.path.isfile(log_file):
-            print(' * "{log_file}" not found *')
+            print(f' * "{log_file}" not found *')
+            skipped += 1
             continue
         with open(log_file, 'r') as f:
             lines = f.readlines()
         for line in lines:
-            uniques[tuple(re.sub(r':[0-9]+', ':<port>', w) for w in line.split()[5:] if not re.search(skip_regexp, line))] = line
+            uniques[tuple(
+                re.sub(r':[0-9]+', ':<port>', w) for w in line.split()[5:] if not re.search(skip_regexp, line)
+            )] = line
         print(''.join(sorted(uniques.values())))
-    return 0
+    return skipped
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main())  # noqa
