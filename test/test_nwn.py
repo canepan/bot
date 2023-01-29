@@ -11,15 +11,6 @@ def mock_subprocess(monkeypatch):
     yield mock_obj
 
 
-@pytest.fixture
-def mock_os(monkeypatch):
-    mock_obj = mock.Mock(name='os')
-    mock_obj.path.expanduser.side_effect = lambda x: x.replace('~', 'HOME')
-    print('Mocking os')
-    monkeypatch.setattr('tools.bin.nwn.os', mock_obj)
-    yield mock_obj
-
-
 def test_nwn(mock_os, mock_subprocess):
     def dir_exists(dirname) -> bool:
         print(f'{dirname}: {dir_map[dirname]}')

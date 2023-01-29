@@ -12,13 +12,6 @@ def mock_datetime(monkeypatch):
 
 
 @pytest.fixture
-def mock_os(monkeypatch):
-    mock_obj = mock.Mock(name='os')
-    monkeypatch.setattr('tools.bin.backup_mysql.os', mock_obj)
-    yield mock_obj
-
-
-@pytest.fixture
 def mock_subprocess(monkeypatch):
     mock_obj = mock.Mock(name='subprocess')
     monkeypatch.setattr('tools.bin.backup_mysql.subprocess', mock_obj)
