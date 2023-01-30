@@ -12,7 +12,7 @@ for root, dirs, files in os.walk('shell'):
 
 setuptools.setup(
     name='NicolaCanepa_Tools',
-    version='0.0.7',
+    version='0.0.8',
     author='Nicola Canepa',
     author_email='canne74@gmail.com',
     description='Useful tools',
