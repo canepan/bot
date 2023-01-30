@@ -8,9 +8,12 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 import attr
+import click
+from click_loglevel import LogLevel
 
-from tools.libs.parse_args import LoggingArgumentParser
 from tools.libs.net_utils import ip_if_not_local
+from tools.libs.parse_args import LoggingArgumentParser
+from tools.libs.text_utils import CompareContents
 
 SERVICE_CONFIGS = {
     'dns': '/etc/bind/named.conf',
@@ -19,17 +22,9 @@ SERVICE_CONFIGS = {
     'openvpn': '/etc/openvpn/canne.conf',
     'smtp': '/etc/postfix/main.cf',
     'wifi': '/etc/hostapd.conf',
+    'www': '/etc/apache2/apache2.conf',
 }
 CACHE_DIR = os.path.join(os.environ['HOME'], '.service_map')
-
-
-def parse_args(argv: list):
-    p = LoggingArgumentParser()
-    p.add_argument('--ka-dir', '-k', required=True)
-    g = p.add_mutually_exclusive_group()
-    g.add_argument('--services', '-S', action='store_true')
-    g.add_argument('--hosts', '-H', action='store_true')
-    return p.parse_args(argv)
 
 
 def decode_first_line(filename: str) -> dict:
@@ -77,8 +72,8 @@ class ServiceConfig(dict):
         cache_file_name = os.path.join(CACHE_DIR, f'{self.host}.json')
         cache_data = None
         all_data = {}
-        self.log.debug(f'Checking if {self.host.strip("*")} is local')
-        if ip_if_not_local(self.host.strip('*')):
+        self.log.debug(f'Checking if {self.host} is local')
+        if self.host and ip_if_not_local(self.host.strip('*')):
             try:
                 with open(cache_file_name, 'r') as cache_file:
                     all_data = json.load(cache_file)
@@ -88,20 +83,24 @@ class ServiceConfig(dict):
         else:
             self.host = None
         if (cache_data is None) or self.cache_expired(filename):
-            cache_data = remote_command(self.host.strip('*') if self.host else None, ['cat', filename])
-            all_data[filename] = cache_data
-            with open(cache_file_name, 'w') as cache_file:
-                json.dump(all_data, cache_file)
+            try:
+                cache_data = remote_command(self.host.strip('*') if self.host else None, ['cat', filename])
+                all_data[filename] = cache_data
+                with open(cache_file_name, 'w') as cache_file:
+                    json.dump(all_data, cache_file)
+            except Exception as e:
+                self.log.debug(f'Unable to read {filename} from {self.host or "local"}: ({e})')
+                cache_data = f'{filename}: {e}'
         return cache_data
 
     def __repr__(self):
-        print(f'repr {self.host}:{self.service_name}')
+        self.log.debug(f'repr {self.host}:{self.service_name}')
         if self.service_name != 'keepalived' and self.service_name in SERVICE_CONFIGS:
             return self[SERVICE_CONFIGS[self.service_name]]
         return super().__repr__()
 
     def __str__(self):
-        print(f'str {self.host}:{self.service_name}')
+        self.log.debug(f'str {self.host}:{self.service_name}')
         return super().__str__()
 
 
@@ -179,6 +178,7 @@ class ServiceCatalog(object):
                 self.service_configs[host] = ServiceConfig(host, service_name)
         for host in hosts[1:]:
             if self.service_configs[host][filename] != self.service_configs[hosts[0]][filename]:
+                self.log.debug(CompareContents(self.service_configs[host][filename], self.service_configs[hosts[0]][filename]))
                 return True
         return False
 
@@ -196,9 +196,9 @@ class ServiceCatalog(object):
                     ]
                 )
             elif os.path.isfile(service_config):
-                return self.file_differs(service_config, hosts)
+                return self.file_differs(service_config, hosts, service_name)
         except Exception as e:
-            self.log.debug(f'Exception while comparing configs: {e}')
+            self.log.debug(f'Exception while comparing configs on {hosts} for {service_name} (no config file defined?): {e}')
             return False
 
 
@@ -208,13 +208,27 @@ def remote_command(host: str, cmd: list):
     return subprocess.check_output(cmd).decode('utf-8')
 
 
-def main(argv: list = sys.argv[1:]):
-    cfg = parse_args(argv)
-    catalog = ServiceCatalog(cfg.ka_dir, cfg.log)
-    if cfg.hosts:
-        cfg.log.info(json.dumps(catalog.hosts, indent=2, default=str))
+def parse_args(argv: list):
+    p = LoggingArgumentParser()
+    p.add_argument('--ka-dir', '-k', required=True)
+    g = p.add_mutually_exclusive_group()
+    g.add_argument('--services', '-S', action='store_true')
+    g.add_argument('--hosts', '-H', action='store_true')
+    return p.parse_args(argv)
+
+
+@click.command()
+@click.option('--ka-dir', '-k', required=True)
+@click.option('--hosts', '-H', is_flag=True, default=False, help='Group by host (default is by service)')
+@click.option("-l", "--log-level", type=LogLevel(), default=logging.INFO)
+def main(ka_dir: str, hosts: bool, log_level: str):
+    logging.basicConfig(level=log_level)
+    log = logging.getLogger(__name__)
+    catalog = ServiceCatalog(ka_dir, log)
+    if hosts:
+        click.echo(json.dumps(catalog.hosts, indent=2, default=str))
     else:
-        cfg.log.info(json.dumps(catalog.services, indent=2))
+        click.echo(json.dumps(catalog.services, indent=2))
     return 0
 
 

@@ -21,6 +21,8 @@ setuptools.setup(
     data_files=data_files,
     install_requires=[
         'attrs',
+        'click',
+        'click-loglevel',
         'dnspython',
         'ping3',
         'typing;python_version<"3.7"',
@@ -46,6 +48,7 @@ setuptools.setup(
             "ldap_browse = tools.bin.ldap_browser:main [ldap]",
             "openvpn-log = tools.bin.openvpn_log:main",
             "sdiff.py = tools.bin.sdiff:main",
+            "service-map = tools.bin.service_map:main",
             "slapd_log = tools.bin.slapd_log:main",
             "ssync.py = tools.bin.ssync:main",
             "total_block = tools.bin.total_block:main",

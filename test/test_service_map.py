@@ -2,6 +2,7 @@ import os
 import pytest
 from unittest import mock
 
+from click.testing import CliRunner
 from tools.bin.service_map import main, ServiceCatalog, ServiceConfig
 
 
@@ -103,4 +104,28 @@ def test_ServiceConfig(mock_ip_if_not_local, mock_open, mock_subprocess, mock_wa
 
 
 def test_main(mock_open, mock_subprocess, mock_walk):
-    main(['--ka-dir', os.path.join(os.path.dirname(__file__), 'fixtures', 'ka_dir')])
+    runner = CliRunner()
+    result = runner.invoke(main, ['--ka-dir', os.path.join(os.path.dirname(__file__), 'fixtures', 'ka_dir')])
+    assert result.exit_code == 0
+    print(result.output)
+    expected = '\n'.join(
+        [
+            '{',
+            '  "keepalived": [',
+            '    "phoenix",',
+            '    "raspy2",',
+            '    "other"',
+            '  ],',
+            '  "aaa": [',
+            '    "phoenix"',
+            '  ],',
+            '  "foobar": [',
+            '    "raspy2"',
+            '  ],',
+            '  "zzz": [',
+            '    "other"',
+            '  ]',
+            '}\n',
+        ]
+    )
+    assert result.output == expected
