@@ -29,7 +29,7 @@ def main(interface):
     services = defaultdict(list)
     for arp_records in [ArpMapRecords(line, filter_interface=interface) for line in cmd_result.stdout.splitlines()]:
         if arp_records.is_valid():
-            if arp_records.fqdn.split('.')[0] in KNOWN_HOSTS:
+            if arp_records.fqdn.split('.')[0].lower() in KNOWN_HOSTS:
                 arp_records.name = click.style(arp_records.name, 'green')
                 services[arp_records.mac].insert(0, arp_records)
             else:
