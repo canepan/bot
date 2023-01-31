@@ -107,7 +107,6 @@ def test_main(mock_open, mock_subprocess, mock_walk):
     runner = CliRunner()
     result = runner.invoke(main, ['--ka-dir', os.path.join(os.path.dirname(__file__), 'fixtures', 'ka_dir')])
     assert result.exit_code == 0
-    print(result.output)
     expected = '\n'.join(
         [
             '{',
