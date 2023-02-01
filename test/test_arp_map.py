@@ -7,6 +7,22 @@ from click.testing import CliRunner
 from tools.bin.arp_map import main, ArpMapRecords
 
 
+@pytest.fixture(autouse=True)
+def mock_netifaces(monkeypatch):
+    mock_obj = mock.MagicMock(name='netifaces')
+    monkeypatch.setattr('tools.bin.arp_map.netifaces', mock_obj)
+    yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
+
+
+@pytest.fixture(autouse=True)
+def mock_socket(monkeypatch):
+    mock_obj = mock.MagicMock(name='socket')
+    monkeypatch.setattr('tools.bin.arp_map.socket', mock_obj)
+    yield mock_obj
+    print(f'{mock_obj} {mock_obj.mock_calls}')
+
+
 @pytest.fixture
 def mock_subprocess(monkeypatch):
     mock_obj = mock.Mock(name='subprocess')

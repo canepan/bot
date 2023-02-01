@@ -24,6 +24,7 @@ setuptools.setup(
         'click',
         'click-loglevel',
         'dnspython',
+        'netifaces',
         'ping3',
         'typing;python_version<"3.7"',
         'ConfigArgParse'
