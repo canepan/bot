@@ -11,13 +11,20 @@ KNOWN_HOSTS = ['raspy2', 'raspy3', 'phoenix', 'raspym2', 'plone-01']
 
 
 class ArpMapRecord(object):
-    def __init__(self, fqdn: str = None, ip: str = None, mac: str = None, interface: str = None, known_hosts_styler: callable = None):
+    seen_names: dict = {}
+
+    def __init__(self, fqdn: str = None, ip: str = None, mac: str = None, interface: str = None, known_hosts_styler: callable = None, duplicate_hosts_styler: callable = None):
         self.fqdn = fqdn
         self.ip = ip
         self.mac = mac
         self.interface = interface
         self.name = self.fqdn if self.fqdn != "?" else self.ip
         self.known_hosts_styler = known_hosts_styler if known_hosts_styler is not None else lambda x: click.style(x, 'green')
+        self.duplicate_hosts_styler = duplicate_hosts_styler if duplicate_hosts_styler is not None else lambda x: click.style(x, 'red')
+        if self.name in ArpMapRecord.seen_names:
+            ArpMapRecord.seen_names[self.name] = self.duplicate_hosts_styler(self.name)
+        else:
+            ArpMapRecord.seen_names[self.name] = self.name
 
     @classmethod
     def from_line(cls, line: str = None, known_hosts_styler: callable = None):
@@ -35,7 +42,7 @@ class ArpMapRecord(object):
         if self.fqdn.split('.')[0].lower() in KNOWN_HOSTS:
             return self.known_hosts_styler(self.name)
         else:
-            return self.name
+            return ArpMapRecord.seen_names[self.name]
 
 
 class ArpMapRecords(object):
@@ -118,7 +125,8 @@ def resolve_ip(ip: str) -> str:
 
 @click.command()
 @click.option('-i', '--interface', default=None, help='Only check specified interface')
-def main(interface):
+@click.option('-d', '--mark-duplicates', is_flag=True, default=False, help='Mark duplicate IPs/FQDNs')
+def main(interface, mark_duplicates: bool):
     services = defaultdict(list)
     for arp_record in LocalMacRecords(filter_interface=interface):
         add_record_to_list(arp_record, services[arp_record.mac])
