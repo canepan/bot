@@ -60,7 +60,7 @@ class ArpMapRecords(object):
     @property
     def lines(self) -> typing.List[str]:
         if self._lines is None:
-            cmd_result = subprocess.run(['/usr/sbin/arp', '-a'], capture_output=True, text=1)
+            cmd_result = subprocess.run(['/usr/sbin/arp', '-a'], env={'LANG': ''}, capture_output=True, text=1)
             self._lines = cmd_result.stdout.splitlines()
         return self._lines
 

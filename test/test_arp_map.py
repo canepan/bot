@@ -46,7 +46,7 @@ def test_main(mock_subprocess):
     assert re.search(r'172\.24\.0\.2.*br-bfbbcd2ade20', result.output)
     assert '192.168.19.53' not in result.output
     assert any(re.search(r'raspy2\.tld\.d.*dns\.tld\.d', line) for line in result.output.splitlines())
-    mock_subprocess.run.assert_called_with(['/usr/sbin/arp', '-a'], capture_output=True, text=1)
+    mock_subprocess.run.assert_called_with(['/usr/sbin/arp', '-a'], env={'LANG': ''}, capture_output=True, text=1)
 
 
 def test_main_eth0(mock_subprocess):
