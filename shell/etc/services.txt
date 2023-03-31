@@ -1,0 +1,10 @@
+{
+  'services': [
+    'dns': {
+      'where': ['phoenix', 'raspy2', 'plone-01']
+    }
+    'letsencrypt': {
+      'where': []
+    }
+  ]
+}
