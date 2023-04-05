@@ -26,6 +26,7 @@ setuptools.setup(
         'dnspython',
         'netifaces',
         'ping3',
+        'requests',
         'typing;python_version<"3.7"',
         'ConfigArgParse'
     ],
@@ -43,6 +44,7 @@ setuptools.setup(
         "console_scripts": [
             "all.py = tools.bin.all:main",
             "arp-map = tools.bin.arp_map:main",
+            "cloudflare_dns.py = tools.bin.cloudflare_dns:main",
             "config_e2g = tools.bin.config_proxy:main",  # compat
             "config_proxy = tools.bin.config_proxy:main",
             "freedns.py = tools.bin.freedns:main",
