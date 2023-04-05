@@ -11,7 +11,7 @@ class LoggingArgumentParser(configargparse.ArgumentParser):
         g = self.add_mutually_exclusive_group()
         g.add_argument('-q', '--quiet', action='store_true')
         g.add_argument('-v', '--verbose', action='store_true')
-        self.app_name = app_name
+        self.app_name = app_name or self.prog
 
     def parse_args(self, *args, **kwargs):
         cfg = super(LoggingArgumentParser, self).parse_args(*args, **kwargs)
