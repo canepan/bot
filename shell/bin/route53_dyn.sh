@@ -119,5 +119,9 @@ EOF
 
   # All Done - cache the IP address for next time
   [ $err -eq 0 ] && echo "$IP" > "$IPFILE"
+
+  # Also update CloudFlare
+  "$(dirname $0)/cloudflare_dyn.sh" "${IP}"
+
 done
 

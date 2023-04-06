@@ -1,3 +1,8 @@
+## v0.0.9
+* add CloudFlare tools
+* add service-map
+* improve arp-map
+* LoggingArgumentParser fallback to ArgParse `prog_name` for `app_name`
 ## v0.0.8
 * use [Click](https://click.palletsprojects.com)
 * add `mv.sh` (to be used on synology devices)

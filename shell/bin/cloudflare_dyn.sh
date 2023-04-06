@@ -12,11 +12,14 @@ KEY="${cloudflare_key}"
 ZONE_ID="${cloudflare_zone_id}"
 TYPE="A"
 NAME="www.nicolacanepa.net"
+RECORD_ID="5c79dcb9419a6d7c2afb5f510f3d09a3"
 CONTENT="${*}"
 PROXIED="true"
 TTL="1"
 #    -H "X-Auth-Key: ${KEY}" \
-curl -X POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/" \
+# With POST record is added, with PUT it should be updated
+# curl -s -X POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/" \
+curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${RECORD_ID}" \
     -H "X-Auth-Email: ${EMAIL}" \
     -H "Authorization: Bearer ${KEY}" \
     -H "Content-Type: application/json" \

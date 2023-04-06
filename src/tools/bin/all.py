@@ -17,7 +17,9 @@ try:
     from tools.libs.parse_args import LoggingArgumentParser
 except Exception:
     from argparse import ArgumentParser as LoggingArgumentParser
+from argparse import ArgumentError
 
+APP_NAME = "BoT.All"
 HOSTS = {
     'linux': {'phoenix', 'raspy2', 'raspy3', 'raspykey', 'plone-01', 'biglinux', 'octopi', 'pathfinder'},
     'mac': {'quark', 'bigmac', 'mini'},
@@ -51,7 +53,7 @@ class CommandRunner(object):
 
 
 def parse_args(argv: list) -> argparse.Namespace:
-    p = LoggingArgumentParser()
+    p = LoggingArgumentParser(APP_NAME)
     p.add_argument('command', help='Command to run (single string)')
     p.add_argument(
         '--dns-zone', '-D', default='canne', help='DNS zone to transfer to get hosts, empty to use hardcoded data'
@@ -60,13 +62,24 @@ def parse_args(argv: list) -> argparse.Namespace:
     p.add_argument('--mac', '-m', action='store_true', help='Only Mac hosts')
     p.add_argument('--extra', '-e', default=[], nargs='*', help='Extra hosts')
     p.add_argument('--with-errors', '-E', action='store_true', help='Also show error output')
+    try:
+        p.add_argument('--verbose', '-v', action='store_true')
+        p.add_argument('--quiet', '-q', action='store_true')
+    except ArgumentError:
+        pass
     cfg = p.parse_args(argv)
     try:
         cfg.log.debug('Using LoggingArgumentParser')
     except AttributeError:
-        cfg.log = logging.getLogger()
+        cfg.log = logging.getLogger(APP_NAME)
         cfg.log.addHandler(logging.StreamHandler(sys.stdout))
-        cfg.log.setLevel(logging.INFO)
+        if cfg.verbose:
+            cfg.log.setLevel(logging.DEBUG)
+            print(f'Using ArgumentParser: {cfg.log}')
+        elif cfg.quiet:
+            cfg.log.setLevel(logging.ERROR)
+        else:
+            cfg.log.setLevel(logging.INFO)
     return cfg
 
 
