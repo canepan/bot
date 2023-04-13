@@ -32,6 +32,14 @@ def mock_my_zones(monkeypatch):
     yield mock_obj
 
 
+@pytest.fixture
+def mock_open(monkeypatch):
+    mock_obj = mock.mock_open(read_data='{}')
+    monkeypatch.setattr('builtins.open', mock_obj)
+    yield mock_obj
+    print(f'{mock_obj}: {mock_obj.mock_calls}')
+
+
 def test_list(mock_requests, mock_my_zones):
     runner = CliRunner()
     result = runner.invoke(main, ['--zone', 'mydomain', 'list'])
