@@ -32,7 +32,7 @@ def mock_my_zones(monkeypatch):
     yield mock_obj
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_open(monkeypatch):
     mock_obj = mock.mock_open(read_data='{}')
     monkeypatch.setattr('builtins.open', mock_obj)
