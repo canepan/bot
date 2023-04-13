@@ -1,6 +1,7 @@
 #!/mnt/opt/nicola/tools/bin/python
 import json
 import os
+import typing
 from collections import defaultdict
 
 import click
@@ -9,10 +10,9 @@ import requests
 
 MY_ZONES = {
     "<zone.tld>": {
-        "id": "<cloudflare_id>",
+        "id": "<zone_id>",
         "token": "<cloudflare_key>",
-        "www.nicolacanepa.net": "<zone_id>",
-        "data": {"type": "A", "name": "<fqdn>", "proxied": True, "ttl": 1},
+        "www.nicolacanepa.net": {"id": "<record_id>", "type": "A", "name": "<fqdn>", "proxied": True, "ttl": 1},
     },
 }
 
@@ -54,24 +54,40 @@ def records(ctx):
 
 @main.command()
 @click.argument("ip_address")
-@click.option("--fqdn", default=None)
+@click.option("--fqdns", "-F", default=None, multiple=True)
+@click.option("--all-records", "-A", is_flag=True, default=False)
+@click.option("--unsafe", "-U", is_flag=True, default=False)
 @click.pass_context
-def update(ctx, ip_address: str, fqdn: str):
-    if fqdn is None:
-        fqdn = f"www.{ctx.obj['zone']}"
-    my_zone = MY_ZONES.get(ctx.obj["zone"], {})
-    record_id = my_zone.get(fqdn, None)
-    url = f"{ctx.obj['base_url']}/{record_id}"
+def update(ctx, ip_address: str, fqdns: typing.Iterable[str], all_records: bool, unsafe: bool):
     headers = ctx.obj["headers"]
-    record_data = my_zone["data"].copy()
-    record_data["content"] = ip_address
-    response = requests.put(url, headers=headers, json=record_data)
-    response_json = response.json()
-    if response_json["success"]:
-        show_records(response_json)
-    else:
-        for message in ("errors", "messages"):
-            click.echo(response_json[message])
+    my_zone = MY_ZONES.get(ctx.obj["zone"], {})
+    if all_records:
+        url = ctx.obj['base_url']
+        response = requests.get(url, headers=headers).json()
+        zones = defaultdict(list)
+        for record in response["result"]:
+            if record["comment"] == "Donomore":
+                local_record = {k: record[k] for k in ("id", "name", "type", "content")}
+                my_zone[local_record["name"]] = local_record
+                fqdns = fqdns + (local_record["name"],)
+
+    if fqdns is None:
+        fqdns = [f"www.{ctx.obj['zone']}"]
+    for fqdn in fqdns:
+        record_data = my_zone[fqdn].copy()
+        record_id = record_data["id"]
+        url = f"{ctx.obj['base_url']}/{record_id}"
+        record_data["content"] = ip_address
+        if unsafe:
+            response = requests.put(url, headers=headers, json=record_data)
+            response_json = response.json()
+            if response_json["success"]:
+                show_records(response_json)
+            else:
+                for message in ("errors", "messages"):
+                    click.echo(response_json[message])
+        else:
+            click.echo(f"Would PUT: {url}, with headers=(hidden), json={record_data}")
 
 
 if __name__ == "__main__":

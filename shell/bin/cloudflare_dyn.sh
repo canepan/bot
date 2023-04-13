@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Temporary hack to use python script
+"$(dirname $0)/cloudflare_dns.py" update -A "${@}"
+exit $?
+
 if [ -r "${HOME}/.cloudflare" ]; then
   . "${HOME}/.cloudflare"
 else
