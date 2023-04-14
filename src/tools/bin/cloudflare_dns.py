@@ -71,7 +71,7 @@ def update(ctx, ip_address: str, fqdns: typing.Iterable[str], all_records: bool,
                 my_zone[local_record["name"]] = local_record
                 fqdns = fqdns + (local_record["name"],)
 
-    if fqdns is None:
+    if not fqdns:
         fqdns = [f"www.{ctx.obj['zone']}"]
     for fqdn in fqdns:
         record_data = my_zone[fqdn].copy()
@@ -82,7 +82,7 @@ def update(ctx, ip_address: str, fqdns: typing.Iterable[str], all_records: bool,
             response = requests.put(url, headers=headers, json=record_data)
             response_json = response.json()
             if response_json["success"]:
-                show_records(response_json)
+                click.echo(response_json)
             else:
                 for message in ("errors", "messages"):
                     click.echo(response_json[message])

@@ -24,8 +24,7 @@ def mock_my_zones(monkeypatch):
         "mydomain": {
             "id": "XXX",
             "token": "YYY",
-            "www.mydomain": "ZZZ",
-            "data": {"type": "A", "name": "www.mydomain", "proxied": True, "ttl": 1},
+            "www.mydomain": {"id": "ZZZ", "type": "A", "name": "www.mydomain", "proxied": True, "ttl": 1},
         }
     }
     monkeypatch.setattr('tools.bin.cloudflare_dns.MY_ZONES', mock_obj)
@@ -64,8 +63,15 @@ def test_update(mock_requests, mock_my_zones):
     runner = CliRunner()
     result = runner.invoke(main, ['--zone', 'mydomain', 'update', '10.11.12.13'])
     assert result.exit_code == 0
+    mock_requests.put.assert_not_called()
+
+
+def test_update_unsafe(mock_requests, mock_my_zones):
+    runner = CliRunner()
+    result = runner.invoke(main, ['--zone', 'mydomain', 'update', '--unsafe', '10.11.12.13'])
+    assert result.exit_code == 0
     mock_requests.put.assert_called_with(
         'https://api.cloudflare.com/client/v4/zones/XXX/dns_records/ZZZ',
         headers={'Content-Type': 'application/json', 'Authorization': 'Bearer YYY'},
-        json={'type': 'A', 'name': 'www.mydomain', 'proxied': True, 'ttl': 1, 'content': '10.11.12.13'},
+        json={'id': 'ZZZ', 'type': 'A', 'name': 'www.mydomain', 'proxied': True, 'ttl': 1, 'content': '10.11.12.13'},
     )
