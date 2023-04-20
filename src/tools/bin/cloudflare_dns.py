@@ -20,7 +20,7 @@ MY_ZONES = {
 def show_records(cf_dict: dict):
     zones = defaultdict(list)
     for record in cf_dict["result"]:
-        zones[record["zone_id"]].append({k: record[k] for k in ("id", "name", "type", "content")})
+        zones[record["zone_id"]].append({k: record[k] for k in ("id", "name", "type", "content", "comment") if record[k]})
     click.echo(json.dumps(zones, indent=2))
 
 
@@ -67,16 +67,17 @@ def update(ctx, ip_address: str, fqdns: typing.Iterable[str], all_records: bool,
         zones = defaultdict(list)
         for record in response["result"]:
             if record["comment"] == "Donomore":
-                local_record = {k: record[k] for k in ("id", "name", "type", "content")}
+                local_record = record.copy()
                 my_zone[local_record["name"]] = local_record
                 fqdns = fqdns + (local_record["name"],)
 
-    if not fqdns:
-        fqdns = [f"www.{ctx.obj['zone']}"]
-    for fqdn in fqdns:
-        record_data = my_zone[fqdn].copy()
+    for fqdn in fqdns or (f"www.{ctx.obj['zone']}",):
+        record_data = my_zone[fqdn]
         record_id = record_data["id"]
         url = f"{ctx.obj['base_url']}/{record_id}"
+        if ip_address == record_data["content"]:
+            click.echo(f"{fqdn} already points to {ip_address}")
+            continue
         record_data["content"] = ip_address
         if unsafe:
             response = requests.put(url, headers=headers, json=record_data)
