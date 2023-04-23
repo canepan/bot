@@ -15,6 +15,7 @@ MY_ZONES = {
         "www.nicolacanepa.net": {"id": "<record_id>", "type": "A", "name": "<fqdn>", "proxied": True, "ttl": 1},
     },
 }
+TEMPLATE = {"type": "A", "proxied": False, "ttl": 1}
 
 
 class Echo(object):
@@ -70,6 +71,38 @@ def records(ctx):
     else:
         for message in ("errors", "messages"):
             ctx.obj["echo"].info(response_json[message])
+
+
+@main.command()
+@click.argument("ip_address")
+@click.option("--fqdns", "-F", default=None, multiple=True)
+@click.option("--unsafe", "-U", is_flag=True, default=False)
+@click.pass_context
+def add(ctx, ip_address: str, fqdns: typing.Iterable[str], unsafe: bool):
+    headers = ctx.obj["headers"]
+    my_zone = MY_ZONES.get(ctx.obj["zone"], {})
+    echo = ctx.obj["echo"]
+
+    fqdns = fqdns or (f"www.{ctx.obj['zone']}",)
+
+    for fqdn in fqdns:
+        click.echo(fqdn)
+        record_data = my_zone.get(fqdn, my_zone.get("template", TEMPLATE))
+        url = f"{ctx.obj['base_url']}/"
+        echo.debug(f"About to post {record_data}")
+        record_data["content"] = ip_address
+        record_data["name"] = fqdn
+        if unsafe:
+            response = requests.post(url, headers=headers, json=record_data)
+            response_json = response.json()
+            echo.debug(response_json)
+            if response_json.get("success", False):
+                echo.info(response_json["result"])
+            else:
+                for message in ("errors", "messages"):
+                    echo.info(response_json[message])
+        else:
+            echo.info(f"Would PUT: {url}, with headers=(hidden), json={record_data}")
 
 
 @main.command()
