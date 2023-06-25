@@ -52,6 +52,7 @@ setuptools.setup(
             "ldap_browse = tools.bin.ldap_browser:main [ldap]",
             "openvpn-log = tools.bin.openvpn_log:main",
             "sdiff.py = tools.bin.sdiff:main",
+            "sservice = tools.bin.service:main",
             "service-map = tools.bin.service_map:main",
             "slapd_log = tools.bin.slapd_log:main",
             "ssync.py = tools.bin.ssync:main",
