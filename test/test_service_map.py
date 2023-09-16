@@ -93,8 +93,6 @@ def test_ServiceCatalog(mock_ip_if_not_local, mock_open, mock_subprocess, mock_w
         'other': {ServiceConfig('other', 'zzz'), ServiceConfig('other', 'keepalived')},
     }
     mock_open.assert_called_with('base_dir.d/zzz.conf', 'r')
-    # print(sc.hosts)
-    # assert False
 
 
 def test_ServiceConfig(mock_ip_if_not_local, mock_open, mock_subprocess, mock_walk):
