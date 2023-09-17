@@ -153,8 +153,6 @@ class Service(object):
     @property
     def name(self):
         if self._name is None:
-            # TODO: replace with vrrp service name from conf
-            # self._name = re.sub(r'\.conf$', '', os.path.basename(self.filename))
             self._service_dict = self.parse_config()
         return self._name
 
@@ -171,6 +169,7 @@ class Service(object):
                 self.log.debug(f"Returned cache for {host.name}/+{self.name}")
             except KeyError:
                 try:
+                    # the following is not working
                     # state = remote_command(ip_if_not_local(host.name), [f"awk -F ' - ' '{{print $2}}' '/tmp/{self.name}.state'"])
                     state = remote_command(ip_if_not_local(host.name), [f"cat '/tmp/{self.name}.state'"]).split("-")[1].strip()
                     self._status[host].active = state == "MASTER"
@@ -204,7 +203,7 @@ class Service(object):
     def parse_config(self) -> dict:
         with open(self.filename, 'r') as f:
             self._name = re.sub(r'\.conf$', '', os.path.basename(self.filename))
-            self._check_script = "/etc/keepalived/bin/check_{self._name}.sh"
+            self._check_script = f"/etc/keepalived/bin/check_{self._name}.sh"
             try:
                 first_line = f.readline()
                 for line in f:

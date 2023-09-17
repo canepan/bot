@@ -12,7 +12,7 @@ for root, dirs, files in os.walk('shell'):
 
 setuptools.setup(
     name='NicolaCanepa_Tools',
-    version='0.0.9',
+    version='0.0.10',
     author='Nicola Canepa',
     author_email='canne74@gmail.com',
     description='Useful tools',
@@ -53,7 +53,7 @@ setuptools.setup(
             "openvpn-log = tools.bin.openvpn_log:main",
             "sdiff.py = tools.bin.sdiff:main",
             "sservice = tools.bin.service:main",
-            "service-map = tools.bin.service_map:main",
+            "service-map = tools.bin.simple_service_map:main",
             "slapd_log = tools.bin.slapd_log:main",
             "ssync.py = tools.bin.ssync:main",
             "total_block = tools.bin.total_block:main",

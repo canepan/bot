@@ -1,15 +1,23 @@
 ## Nicola's tools
 A set of tools to help the management of the home network.  
-Currently I have the current services at home:
+Currently I have these services at home:
 * Keepalived
 * DNS (keepalived)
-* OpenVPN (keepalived)
-* SMTP relay (keepalived)
-* MySQL (keepalived) - mainly for Kodi
-* XyMon (keepalived)
 * Flask (keepalived)
+* JellyFin (docker, keepalived)
+* MySQL (keepalived) - mainly for Kodi
+* OpenVPN (keepalived)
+* PiHole (docker, keepalived)
+* SMTP relay (keepalived)
+* XyMon (keepalived)
 * Web server (keepalived)
 * Tool to configure allowlisted applications (i.e. Minecraft, Firefox, etc)
+
+## service-map
+* show running, active services
+* reads KeepAlived config (basic)
+* uses ssh for remote nodes
+* click for colors
 
 ## sservice
 This is meant to start/stop a service managed by Keepalived, by getting the latest config from git and backing up the current config before overwriting.  
