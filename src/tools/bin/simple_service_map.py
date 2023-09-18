@@ -240,7 +240,7 @@ def add_color(text: str) -> str:
 def show_services_by_host(active_services) -> typing.Iterator[str]:
     for host, services in active_services.items():
         if services is not None:
-            yield f"{click.style(host, 'white', bold=True)}: {', '.join(add_color(service) for service in services)}"
+            yield f"{click.style(host, 'white', bold=True)}: {', '.join(add_color(service) for service in sorted(services))}"
 
 
 def show_services(active_services) -> typing.Iterator[str]:
@@ -254,7 +254,7 @@ def show_services(active_services) -> typing.Iterator[str]:
             else:
                 services_dict[service].append(running(host))
     for service, hosts in services_dict.items():
-        yield f"{click.style(service, 'white', bold=True)}: {', '.join(add_color(host) for host in hosts)}"
+        yield f"{click.style(service, 'white', bold=True)}: {', '.join(add_color(host) for host in sorted(hosts))}"
 
 
 def setup_logging(verbose: typing.Optional[bool]) -> logging.Logger:

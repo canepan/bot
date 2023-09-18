@@ -10,7 +10,7 @@ from tools.bin.simple_service_map import main, show_services
 def my_check_output(*args, **kwargs):
     if args[0][0] == "ping":
         if args[0][-1] != "phoenix":
-            raise Exception()
+            raise Exception(args, kwargs)
     if args[0][0] == "bash":
         if "AAA.state" in args[0][-1]:
             return "now - MASTER - ggg"
