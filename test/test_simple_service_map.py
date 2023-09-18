@@ -4,7 +4,7 @@ from unittest import mock
 
 from click.testing import CliRunner
 from conftest import mapped_mock_open
-from tools.bin.simple_service_map import main, show_services
+from tools.bin.simple_service_map import main, show_services, status_cache
 
 
 def my_check_output(*args, **kwargs):
@@ -78,10 +78,12 @@ def mock_os_path_exists(monkeypatch):
     ),
 )
 def test_show_services(input_dict, output_dict):
+    status_cache.clear()
     assert list(show_services(input_dict)) == output_dict
 
 
 def test_main(mock_open, mock_check_output, mock_glob, mock_os_path_exists):
+    status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, [])
     assert result.exit_code == 0
@@ -89,6 +91,7 @@ def test_main(mock_open, mock_check_output, mock_glob, mock_os_path_exists):
 
 
 def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_os_path_exists):
+    status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, ["-s"])
     assert result.exit_code == 0
