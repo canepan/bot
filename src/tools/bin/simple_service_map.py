@@ -7,6 +7,7 @@ import typing
 from collections import defaultdict
 from glob import glob
 from subprocess import check_output, CalledProcessError, STDOUT
+from concurrent.futures import ThreadPoolExecutor
 
 import attr
 import click
@@ -73,6 +74,8 @@ class Host(object):
         return self._is_reachable
 
     def check_active_services(self, services: list) -> list:
+        if services is None:
+            return None
         result = []
         for service in services:
             self.log.debug(f"Check {service} on {self}")
@@ -236,13 +239,14 @@ def add_color(text: str) -> str:
 
 def show_services_by_host(active_services) -> typing.Iterator[str]:
     for host, services in active_services.items():
-        yield f"{click.style(host, 'white', bold=True)}: {', '.join(add_color(service) for service in services)}"
+        if services is not None:
+            yield f"{click.style(host, 'white', bold=True)}: {', '.join(add_color(service) for service in services)}"
 
 
 def show_services(active_services) -> typing.Iterator[str]:
     services_dict = defaultdict(list)
     for host, services in active_services.items():
-        for service in services:
+        for service in services or []:
             if is_active(service):
                 services_dict[service[1:]].append(active(host))
             elif is_failed(service):
@@ -269,34 +273,57 @@ def setup_logging(verbose: typing.Optional[bool]) -> logging.Logger:
     return log
 
 
+@attr.s
+class HostChecker(object):
+    hostnames: list = attr.ib()
+
+    def __attrs_post_init__(self):
+        self.log = logging.getLogger(__name__)
+        self.service_list = {Service(fname) for fname in glob(os.path.join(KA_DIR, "*.conf"))}
+        if self.hostnames:
+            self.hosts = [Host(hostname) for hostname in self.hostnames]
+        else:
+            self.hosts = []
+            for s in self.service_list:
+                for hostname in s.hosts:
+                    if Host(hostname) not in self.hosts:
+                        self.hosts.append(Host(hostname))
+            self.log.debug(f"Detected hosts: {', '.join(h.name for h in self.hosts)}")
+
+    def check_host(self, host: Host):
+        if host.is_reachable:
+            self.log.debug(f"{host} is reachable: checking {self.service_list}")
+            return host.name, host.check_active_services(self.service_list)
+        else:
+            return host.name, None
+
+
 @click.command()
 @click.argument("hostnames", nargs=-1) #, type=set)
 @click.option("--by-service", "-s", default=False, is_flag=True)
+@click.option("--no-parallel", "-n", default=False, is_flag=True)
 @click.option("--verbose/--quiet", "-v/-q", default=None)
-def main(hostnames: set, by_service:bool, verbose: typing.Optional[bool]):
+def main(hostnames: set, no_parallel: bool, by_service: bool, verbose: typing.Optional[bool]):
     log = setup_logging(verbose)
 
-    service_list = {Service(fname) for fname in glob(os.path.join(KA_DIR, "*.conf"))}
-    if hostnames:
-        hosts = [Host(hostname) for hostname in hostnames]
+    hc = HostChecker(hostnames)
+    if no_parallel:
+        active_services = defaultdict(list)
+        for host in hc.hosts:
+            if host.is_reachable:
+                log.debug(f"{host} is reachable: checking {hc.service_list}")
+                active_services[host.name].extend(host.check_active_services(hc.service_list))
+            else:
+                active_services[host.name] = None
     else:
-        hosts = []
-        for s in service_list:
-            for hostname in s.hosts:
-                if Host(hostname) not in hosts:
-                    hosts.append(Host(hostname))
-        log.debug(f"Detected hosts: {', '.join(h.name for h in hosts)}")
-
-    active_services = defaultdict(list)
-    for host in hosts:
-        if host.is_reachable:
-            log.debug(f"{host} is reachable: checking {service_list}")
-            active_services[host.name].extend(host.check_active_services(service_list))
+        with ThreadPoolExecutor(len(hc.hosts)) as tpool:
+            active_services = dict(tpool.map(hc.check_host, hc.hosts))
     if by_service:
         output_lines = show_services(active_services)
     else:
         output_lines = show_services_by_host(active_services)
-    for line in output_lines:
+    log.debug(f"Unreachable: {', '.join(h for h, s in active_services.items() if s is None)}")
+    for line in sorted(output_lines):
         click.echo(line)
 
 
