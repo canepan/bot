@@ -42,7 +42,8 @@ def mock_glob(monkeypatch):
 @pytest.fixture
 def mock_ip_if_not_local(monkeypatch):
     mock_obj = mock.Mock(name='ip_if_not_local')
-    mock_obj.check_output.side_effect = ['127.0.0.1', '127.0.0.1', None]
+    resolve_dict = {"phoenix": None, "raspy2": "127.0.0.1", "other": "127.0.0.2"}
+    mock_obj.side_effect = resolve_dict.get
     monkeypatch.setattr('tools.bin.simple_service_map.ip_if_not_local', mock_obj)
     yield mock_obj
     print(f'{mock_obj} {mock_obj.mock_calls}')
