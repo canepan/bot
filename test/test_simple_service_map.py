@@ -82,7 +82,7 @@ def test_show_services(input_dict, output_dict):
     assert list(show_services(input_dict)) == output_dict
 
 
-def test_main(mock_open, mock_check_output, mock_glob, mock_os_path_exists):
+def test_main(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os_path_exists):
     status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, [])
@@ -90,7 +90,7 @@ def test_main(mock_open, mock_check_output, mock_glob, mock_os_path_exists):
     assert result.output == "phoenix: +AAA, zzz\n"
 
 
-def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_os_path_exists):
+def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os_path_exists):
     status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, ["-s"])
