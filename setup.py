@@ -45,6 +45,7 @@ setuptools.setup(
             "all.py = tools.bin.all:main",
             "arp-map = tools.bin.arp_map:main",
             "cloudflare_dns.py = tools.bin.cloudflare_dns:main",
+            "compare-ka = tools.bin.compare_ka:main",
             "config_e2g = tools.bin.config_proxy:main",  # compat
             "config_proxy = tools.bin.config_proxy:main",
             "freedns.py = tools.bin.freedns:main",
