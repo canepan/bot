@@ -6,14 +6,14 @@ import sys
 
 import attr
 
-from ..libs.stools_defaults import host_if_not_me, parse_args
+from ..libs.stools_defaults import hosts_if_not_me, parse_args
 
 
 def main(argv: list = sys.argv[1:]):
     args = parse_args(argv)
     _other_hosts = args.hosts
 
-    for _host in host_if_not_me(args.hosts):
+    for _host in hosts_if_not_me(args.hosts):
         for _fn in args.filenames:
             try:
                 result = subprocess.check_output(

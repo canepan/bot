@@ -16,23 +16,23 @@ def mock_socket(monkeypatch):
     print(f'{mock_socket} {mock_socket.mock_calls}')
 
 
-def test_host_if_not_me(mock_socket):
+def test_hosts_if_not_me(mock_socket):
     mock_socket.gethostname.return_value = 'myfqdn'
-    assert list(net_utils.host_if_not_me(['myfqdn'])) == []
-    assert list(net_utils.host_if_not_me(['other', 'myfqdn'])) == [net_utils.Host(hostname='other', ip='1.1.1.1')]
+    assert list(net_utils.hosts_if_not_me(['myfqdn'])) == []
+    assert list(net_utils.hosts_if_not_me(['other', 'myfqdn'])) == [net_utils.Host(hostname='other', ip='1.1.1.1')]
 
 
-def test_host_if_not_me_exc(mock_socket):
+def test_hosts_if_not_me_exc(mock_socket):
     net_utils.gethostbyname.cache_clear()
     mock_socket.gethostname.return_value = 'myfqdn'
     # mock_socket.gethostbyname.side_effect = [socket.gaierror]
-    assert list(net_utils.host_if_not_me(['myfqdn'])) == []
+    assert list(net_utils.hosts_if_not_me(['myfqdn'])) == []
     net_utils.gethostbyname.cache_clear()
     mock_socket.gethostbyname.side_effect = socket.gaierror
-    assert list(net_utils.host_if_not_me(['other', 'myfqdn'])) == []
+    assert list(net_utils.hosts_if_not_me(['other', 'myfqdn'])) == []
     net_utils.gethostbyname.cache_clear()
     mock_socket.gethostbyname.side_effect = [socket.gaierror, '1.1.1.1']
-    assert list(net_utils.host_if_not_me(['this', 'other', 'myfqdn'])) == [
+    assert list(net_utils.hosts_if_not_me(['this', 'other', 'myfqdn'])) == [
         net_utils.Host(hostname='other', ip='1.1.1.1')
     ]
 

@@ -28,7 +28,7 @@ def ip_if_not_local(host: str) -> typing.Optional[str]:
         return _ip
 
 
-def host_if_not_me(hosts: list) -> typing.List[Host]:
+def hosts_if_not_me(hosts: list) -> typing.List[Host]:
     _myhn = socket.gethostname()
     _log.debug('Resolving {}'.format(_myhn))
     for _hn in [oh for oh in hosts if oh != _myhn]:
