@@ -1,7 +1,6 @@
 import argparse
 import sys
 
-from .net_utils import gethostbyname, ip_if_not_local, host_if_not_me
 from .parse_args import LoggingArgumentParser
 
 

@@ -13,7 +13,7 @@ if os.path.abspath(os.path.dirname(os.path.dirname(__file__))) not in sys.path:
     sys.path.insert(1, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 from tools.libs.parse_args import LoggingArgumentParser
 from tools.libs.total_block_config import config
-from tools.libs.stools_defaults import ip_if_not_local
+from tools.libs.net_utils import ip_if_not_local
 
 APP_NAME = 'LockDown'
 
