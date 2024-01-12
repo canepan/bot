@@ -1,5 +1,5 @@
 # Using the official Python Docker image as default
-image: python
+image: python:3.11
 
 .tests:
   stage: Test
