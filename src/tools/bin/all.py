@@ -1,11 +1,14 @@
 #!/Volumes/MoviablesX/VMs/tools/bin/python
 import argparse
+import datetime
 import logging
+import os
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from subprocess import run, PIPE
+from difflib import unified_diff
 
 try:
     import dns.query
@@ -48,13 +51,28 @@ class CommandRunner(object):
         ssh_options = ['-o', 'StrictHostKeyChecking false', '-o', 'ConnectTimeout 5', '-o', 'BatchMode yes']
         if not self.verbose:
             ssh_options.append('-q')
+        if self.command.startswith('diff '):
+            file_name = os.path.abspath(self.command[len("diff "):])
+            result = run(['ssh'] + ssh_options + [host, f'stat -c "%y" "{file_name}" ; cat "{file_name}"'], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+            remote_content = result.stdout.splitlines()
+            if remote_content:
+                with open(file_name, "r") as f:
+                    local_content = f.read().splitlines()
+                from_file = file_name
+                from_date = datetime.datetime.fromtimestamp(os.path.getmtime(file_name), tz=datetime.timezone.utc).isoformat()
+                to_file = f'{host}:{file_name}'
+                to_date = remote_content[0].replace(' ', 'T', 1)
+                result_diff = '\n'.join(unified_diff(local_content, remote_content[1:], from_file, to_file, from_date, to_date))
+            else:
+                result_diff = ''
+            return (host, CommandResult(result_diff.rstrip('\n'), result.stderr.rstrip('\n'), result.returncode))
         result = run(['ssh'] + ssh_options + [host, self.command], stdout=PIPE, stderr=PIPE, universal_newlines=True)
         return (host, CommandResult(result.stdout.rstrip('\n'), result.stderr.rstrip('\n'), result.returncode))
 
 
 def parse_args(argv: list) -> argparse.Namespace:
     p = LoggingArgumentParser(APP_NAME)
-    p.add_argument('command', help='Command to run (single string)')
+    p.add_argument('command', help='Command to run (single string). Run remote diff if it starts with "diff"')
     p.add_argument(
         '--dns-zone', '-D', default='canne', help='DNS zone to transfer to get hosts, empty to use hardcoded data'
     )
@@ -135,8 +153,12 @@ def main(argv: list = sys.argv[1:]):
     with ThreadPoolExecutor(16) as tpool:
         results = tpool.map(cr.run_remote_command, hosts, timeout=5)
     for result in results:
+        if cfg.command.startswith('diff '):
+            prefix = ''
+        else:
+            prefix = f'{result[0]}: '
         if cfg.with_errors or result[1].returncode == 0:
-            cfg.log.info(result[1].text(prefix=f'{result[0]}: '))
+            cfg.log.info(result[1].text(prefix=prefix))
 
 
 if __name__ == '__main__':
