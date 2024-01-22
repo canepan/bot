@@ -12,7 +12,7 @@ for root, dirs, files in os.walk('shell'):
 
 setuptools.setup(
     name='NicolaCanepa_Tools',
-    version='0.0.11',
+    version='0.1.1',
     author='Nicola Canepa',
     author_email='canne74@gmail.com',
     description='Useful tools',
@@ -39,7 +39,7 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     zip_safe=False,
-    python_requires='>=3.6',
+    python_requires='>=3.8',
     entry_points={
         "console_scripts": [
             "all.py = tools.bin.all:main",

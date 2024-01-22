@@ -3,8 +3,10 @@ import json
 import logging
 import os
 import re
+import sys
 import typing
 from collections import defaultdict
+from getpass import getuser
 from glob import glob
 from subprocess import check_output, CalledProcessError, STDOUT
 from concurrent.futures import ThreadPoolExecutor
@@ -258,17 +260,22 @@ def show_services(active_services) -> typing.Iterator[str]:
 
 
 def setup_logging(verbose: typing.Optional[bool]) -> logging.Logger:
-    logging.basicConfig()
+    logging.basicConfig(stream=sys.stdout)
     log = logging.getLogger(__name__)
-    fh = logging.FileHandler("/tmp/service_map.log")
+    if user := f".{getuser()}" == ".root":
+        user = ""
+    logfile = f"/tmp/{os.path.basename(__file__).split('.')[0]}{user}.log"
+    fh = logging.FileHandler(logfile)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     log.addHandler(fh)
-    logging.getLogger().handlers[0].setLevel(logging.INFO)
+    stdout_handler = logging.getLogger().handlers[0]
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.setFormatter(logging.Formatter("%(message)s"))
     if verbose:
-        logging.getLogger().handlers[0].setLevel(logging.DEBUG)
+        stdout_handler.setLevel(logging.DEBUG)
     elif verbose is False:
-        logging.getLogger().handlers[0].setLevel(logging.CRITICAL)
+        stdout_handler.setLevel(logging.CRITICAL)
     log.setLevel(logging.DEBUG)
     return log
 

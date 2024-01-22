@@ -1,6 +1,7 @@
 import logging
 import sys
 
+CONSOLE_FORMATTER = logging.Formatter(fmt='%(message)s')
 LOG_FORMATTER = logging.Formatter(
     fmt='%(asctime)s %(name)s:%(module)s:%(funcName)s:%(lineno)d %(message)s', datefmt='%Y%m%d%H%M%S'
 )
@@ -43,10 +44,10 @@ def get_logger(app_name: str, verbose: bool, quiet: bool, with_file: str = None)
                           the record is emitted
     """
     log = logging.getLogger(app_name)
-    stderr_handler = _stream_handler(logstream=sys.stderr, loglevel=logging.DEBUG, logname='stderr')
+    stderr_handler = _stream_handler(logstream=sys.stderr, loglevel=logging.DEBUG, logname='stderr', logfilters=[MaxLevelFilter(logging.INFO)])
     log.addHandler(stderr_handler)
     stdout_handler = _stream_handler(
-        logstream=sys.stdout, loglevel=logging.INFO, logname='stdout', logfilters=[MaxLevelFilter(logging.INFO)]
+        logstream=sys.stdout, loglevel=logging.INFO, logname='stdout'
     )
     log.addHandler(stdout_handler)
     if verbose:
@@ -64,7 +65,7 @@ def get_logger(app_name: str, verbose: bool, quiet: bool, with_file: str = None)
         log.setLevel(logging.DEBUG)
         stderr_handler.setLevel(loglevel)
     else:
-        stdout_handler.setFormatter(LOG_FORMATTER)
+        stdout_handler.setFormatter(CONSOLE_FORMATTER)
         stderr_handler.setFormatter(LOG_FORMATTER)
         log.setLevel(loglevel)
     return log
