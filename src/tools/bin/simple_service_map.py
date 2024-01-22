@@ -3,27 +3,45 @@ import json
 import logging
 import os
 import re
+import socket
+import sys
 import typing
 from collections import defaultdict
+from getpass import getuser
 from glob import glob
 from subprocess import check_output, CalledProcessError, STDOUT
 from concurrent.futures import ThreadPoolExecutor
 
 import attr
 import click
+import netifaces
 
 from tools.libs.net_utils import ip_if_not_local
 
 KA_DIR = "/etc/keepalived/keepalived.d"
+TIMEOUT = 5
 status_cache = defaultdict(dict)  # {host: {service: True/False}}
 
 
-def remote_command(host: str, cmd: list) -> str:
-    if host:
-        run_cmd = ['ssh', host, " ".join(cmd)]
-    else:
-        run_cmd = ['bash', "-c", " ".join(cmd)]
-    return check_output(run_cmd, universal_newlines=True, stderr=STDOUT)
+@attr.s
+class CommandRunner(object):
+    verbose: bool = attr.ib(default=False)
+
+    def __attrs_post_init__(self):
+        self.ssh = paramiko.SSHClient()
+        self.ssh.load_system_host_keys()
+
+    def remote_command(self, host: str, cmd: list) -> str:
+        if host:
+            with self.ssh as ssh:
+                ssh.connect(host, timeout=TIMEOUT)
+                if self.verbose:
+                    ssh.s.get_transport().t.open_channel("session").set_combine_stderr(True)
+                stdin, stdout, stderr = ssh.exec_command(" ".join(cmd))
+                return stdout.read().decode("utf-8")
+        else:
+            run_cmd = ['bash', "-c", " ".join(cmd)]
+        return check_output(run_cmd, universal_newlines=True, stderr=STDOUT)
 
 
 def active(name: str) -> str:
@@ -81,11 +99,11 @@ class Host(object):
             self.log.debug(f"Check {service} on {self}")
             if service.should_run_on(self):
                 if service.is_active_on(self):
-                    result.append(active(service.name))
+                    result.append(active(service))
                 elif service.is_running_on(self):
-                    result.append(running(service.name))
+                    result.append(running(service))
                 else:
-                    result.append(failed(service.name))
+                    result.append(failed(service))
             else:
                 self.log.debug(f"{service} should not run on {self}")
         return result
@@ -126,6 +144,7 @@ class Service(object):
         # self._config_name = None
         self._service_dict = None
         self._hosts = None
+        self._ip = None
         self._status = defaultdict(ServiceStatus)
         self.log = logging.getLogger(__name__)
 
@@ -154,6 +173,12 @@ class Service(object):
         return self._hosts
 
     @property
+    def ip(self):
+        if self._ip is None:
+            self._service_dict = self.parse_config()
+        return self._ip
+
+    @property
     def name(self):
         if self._name is None:
             self._service_dict = self.parse_config()
@@ -174,7 +199,11 @@ class Service(object):
                 try:
                     # the following is not working
                     # state = remote_command(ip_if_not_local(host.name), [f"awk -F ' - ' '{{print $2}}' '/tmp/{self.name}.state'"])
-                    state = remote_command(ip_if_not_local(host.name), [f"cat '/tmp/{self.name}.state'"]).split("-")[1].strip()
+                    state = (
+                        remote_command(ip_if_not_local(host.name), [f"cat '/tmp/{self.name}.state'"])
+                        .split("-")[1]
+                        .strip()
+                    )
                     self._status[host].active = state == "MASTER"
                 except CalledProcessError as e:
                     self.log.debug(f"{e}\n{e.stdout}")
@@ -192,7 +221,9 @@ class Service(object):
                 self.log.debug(f"Returned cache for {host.name}/{self.name}")
             except KeyError:
                 try:
-                    remote_command(ip_if_not_local(host.name), [self.check_script])  # [f"/etc/keepalived/bin/check_{self.name}.sh"])
+                    remote_command(
+                        ip_if_not_local(host.name), [self.check_script]
+                    )  # [f"/etc/keepalived/bin/check_{self.name}.sh"])
                     self._status[host].available = True
                 except CalledProcessError as e:
                     self.log.debug(f"{e}\n{e.stdout}")
@@ -210,10 +241,14 @@ class Service(object):
             try:
                 first_line = f.readline()
                 for line in f:
-                    if line.strip().startswith("script "):
-                        self._check_sript = line.split()[1].strip('"')
-                    elif line.strip().startswith("vrrp_instance "):
-                        self._name = line.split()[1].strip('"')
+                    stripped_line = line.strip()
+                    splitted_line = line.split()
+                    if stripped_line.startswith("script "):
+                        self._check_sript = splitted_line[1].strip('"')
+                    elif len(splitted_line) > 1 and splitted_line[1] == "dev":
+                        self._ip = splitted_line[0].split("/")[0]
+                    elif stripped_line.startswith("vrrp_instance "):
+                        self._name = splitted_line[1].strip('"')
                 return json.loads(first_line.lstrip('#').strip())
             except json.decoder.JSONDecodeError as e:
                 raise DecodeFirstLineException(f'Error while decoding {filename} ("{first_line}")') from e
@@ -233,44 +268,102 @@ def add_color(text: str) -> str:
         return click.style(text, "red", bold=True)
     elif text.startswith("+"):
         return click.style(text, "green")
+    return text
+
+
+def ip_configured_ok(text: str) -> str:
+    return click.style(text, blink=True)
+
+
+def mark_local_ip(service: Service, local_ips: list):
+    if service.ip in local_ips:
+        return ip_configured_ok(service.name)
     else:
-        return text
+        return service.name
 
 
-def show_services_by_host(active_services) -> typing.Iterator[str]:
+@attr.s
+class HostService(object):
+    host: Host = attr.ib()
+    service: Service = attr.ib()
+
+    @property
+    def active(self) -> bool:
+        if self._active is None:
+            self._active = self.service.is_active_on(self.host)
+        return self._active
+
+    @property
+    def running(self) -> bool:
+        if self._running is None:
+            self._running = self.service.is_running_on(self.host)
+        return self._running
+
+    def __repr__(self):
+        pass
+        if service.is_active_on(self):
+            result.append(active(service))
+        elif service.is_running_on(self):
+            result.append(running(service))
+        else:
+            result.append(failed(service))
+
+
+def show_services_by_host(
+    active_services: typing.Dict[str, typing.List[Service]], local_ips: typing.Dict[str, list] = {}
+) -> typing.Iterator[str]:
     for host, services in active_services.items():
         if services is not None:
-            yield f"{click.style(host, 'white', bold=True)}: {', '.join(add_color(service) for service in sorted(services))}"
+            statuses = ', '.join(
+                add_color(mark_local_ip(service, local_ips.get(host, []))) for service in sorted(services)
+            )
+            yield f"{click.style(host, 'white', bold=True)}: {statuses}"
 
 
-def show_services(active_services) -> typing.Iterator[str]:
+def show_services(
+    active_services: typing.Dict[str, typing.List[Service]], local_ips: typing.Dict[str, list] = {}
+) -> typing.Iterator[str]:
     services_dict = defaultdict(list)
     for host, services in active_services.items():
         for service in services or []:
-            if is_active(service):
+            if is_active(service.name):
                 services_dict[service[1:]].append(active(host))
-            elif is_failed(service):
+            elif is_failed(service.name):
                 services_dict[service[1:]].append(failed(host))
             else:
                 services_dict[service].append(running(host))
     for service, hosts in services_dict.items():
-        yield f"{click.style(service, 'white', bold=True)}: {', '.join(add_color(host) for host in sorted(hosts))}"
+        yield f"{click.style(service.name, 'white', bold=True)}: {', '.join(add_color(host) for host in sorted(hosts))}"
 
 
 def setup_logging(verbose: typing.Optional[bool]) -> logging.Logger:
-    logging.basicConfig()
+    logging.basicConfig(stream=sys.stdout)
     log = logging.getLogger(__name__)
-    fh = logging.FileHandler("/tmp/service_map.log")
+    if user := f".{getuser()}" == ".root":
+        user = ""
+    logfile = f"/tmp/{os.path.basename(__file__).split('.')[0]}{user}.log"
+    fh = logging.FileHandler(logfile)
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     log.addHandler(fh)
-    logging.getLogger().handlers[0].setLevel(logging.INFO)
+    stdout_handler = logging.getLogger().handlers[0]
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.setFormatter(logging.Formatter("%(message)s"))
     if verbose:
-        logging.getLogger().handlers[0].setLevel(logging.DEBUG)
+        stdout_handler.setLevel(logging.DEBUG)
     elif verbose is False:
-        logging.getLogger().handlers[0].setLevel(logging.CRITICAL)
+        stdout_handler.setLevel(logging.CRITICAL)
     log.setLevel(logging.DEBUG)
     return log
+
+
+def local_ips() -> list:
+    return [
+        addrs["addr"]
+        for iface in netifaces.interfaces()
+        if not re.match(r"br-.*$|docker|lo", iface) and netifaces.AF_INET in netifaces.ifaddresses(iface)
+        for addrs in netifaces.ifaddresses(iface)[netifaces.AF_INET]
+    ]
 
 
 @attr.s
@@ -299,11 +392,12 @@ class HostChecker(object):
 
 
 @click.command()
-@click.argument("hostnames", nargs=-1) #, type=set)
+@click.argument("hostnames", nargs=-1)  # , type=set)
 @click.option("--by-service", "-s", default=False, is_flag=True)
 @click.option("--no-parallel", "-n", default=False, is_flag=True)
+@click.option("--check-ips", "-i", default=False, is_flag=True)
 @click.option("--verbose/--quiet", "-v/-q", default=None)
-def main(hostnames: set, no_parallel: bool, by_service: bool, verbose: typing.Optional[bool]):
+def main(hostnames: set, no_parallel: bool, by_service: bool, check_ips: bool, verbose: typing.Optional[bool]):
     log = setup_logging(verbose)
 
     hc = HostChecker(hostnames)
@@ -318,10 +412,13 @@ def main(hostnames: set, no_parallel: bool, by_service: bool, verbose: typing.Op
     else:
         with ThreadPoolExecutor(len(hc.hosts)) as tpool:
             active_services = dict(tpool.map(hc.check_host, hc.hosts))
+    hosts_ips = {
+        socket.gethostname(): local_ips(),
+    }
     if by_service:
-        output_lines = show_services(active_services)
+        output_lines = show_services(active_services, hosts_ips)
     else:
-        output_lines = show_services_by_host(active_services)
+        output_lines = show_services_by_host(active_services, hosts_ips)
     log.debug(f"Unreachable: {', '.join(h for h, s in active_services.items() if s is None)}")
     for line in sorted(output_lines):
         click.echo(line)

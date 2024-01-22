@@ -4,7 +4,7 @@ from unittest import mock
 
 from click.testing import CliRunner
 from conftest import mapped_mock_open
-from tools.bin.simple_service_map import main, show_services, status_cache
+from tools.bin.simple_service_map import Service, main, show_services, status_cache
 
 
 def my_check_output(*args, **kwargs):
@@ -75,7 +75,7 @@ def mock_os_path_exists(monkeypatch):
     "input_dict,output_dict",
     (
         ({}, []),
-        ({"host": ["s1"]}, [f"{click.style('s1', 'white', bold=True)}: host"]),
+        ({"host": [Service("s1")]}, [f"{click.style('s1', 'white', bold=True)}: host"]),
     ),
 )
 def test_show_services(input_dict, output_dict):
