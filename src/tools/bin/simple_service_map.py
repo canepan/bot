@@ -66,12 +66,12 @@ class Host(object):
             try:
                 self._is_reachable = status_cache[self.name]["ping"]
             except KeyError:
+                self._is_reachable = False
                 try:
                     check_output(["ping", "-c", "3", "-W", "1", self.name], universal_newlines=True)
                     self._is_reachable = True
                 except Exception as e:
-                    self.log.debug(f"Problem with {self}: {e}")
-                    self._is_reachable = False
+                    self.log.debug(f"Problem with {self}: {e}.\n{e.output}")
                 status_cache[self.name]["ping"] = self._is_reachable
         return self._is_reachable
 
