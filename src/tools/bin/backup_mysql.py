@@ -74,7 +74,7 @@ class FileSize(object):
 
 
 def main(argv: list = sys.argv[1:]):
-    cfg = parse_args()
+    cfg = parse_args(argv)
     _log = logging.getLogger(__name__)
     _log.addHandler(logging.StreamHandler(sys.stdout))
     _log.setLevel(cfg.debug)
