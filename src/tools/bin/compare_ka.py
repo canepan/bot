@@ -12,9 +12,9 @@ from tools.libs.net_utils import hosts_if_not_me
 @click.argument("hostnames", nargs=-1) #, type=set)
 def main(hostnames: set):
     hc = HostChecker(hostnames)
-    for host in hosts_if_not_me(hc.hosts):
-        click.echo(f"Checking {host.name}...")
-        click.echo(check_output(["remote_diff.sh", "/etc/keepalived/keepalived.d/", f"{host.name}:/etc/keepalived/keepalived.d/"], universal_newlines=True, stderr=STDOUT))
+    for host in hosts_if_not_me([h.name for h in hc.hosts]):
+        click.echo(f"Checking {host}...")
+        click.echo(check_output(["remote_diff.sh", "/etc/keepalived/keepalived.d/", f"{host.hostname}:/etc/keepalived/keepalived.d/"], universal_newlines=True, stderr=STDOUT))
 
 
 if __name__ == "__main__":
