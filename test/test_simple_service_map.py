@@ -1,10 +1,11 @@
 import click
+import os
 import pytest
 from unittest import mock
 
 from click.testing import CliRunner
 from conftest import mapped_mock_open
-from tools.bin.simple_service_map import main, show_services, status_cache
+from tools.bin.simple_service_map import main, show_services, Host
 
 
 def my_check_output(*args, **kwargs):
@@ -13,8 +14,8 @@ def my_check_output(*args, **kwargs):
             raise Exception(args, kwargs)
     if args[0][0] == "bash":
         if "AAA.state" in args[0][-1]:
-            return "now - MASTER - ggg"
-    return 'my_content'
+            return "now - MASTER - INSTANCE"
+    return '20240226084734 - BACKUP - INSTANCE'
 
 
 @pytest.fixture
@@ -64,9 +65,11 @@ def mock_open(monkeypatch):
 
 
 @pytest.fixture
-def mock_os_path_exists(monkeypatch):
-    mock_obj = mock.Mock(name='os.path.exists')
-    monkeypatch.setattr('tools.bin.simple_service_map.os.path.exists', mock_obj)
+def mock_os(monkeypatch):
+    mock_obj = mock.Mock(name='mock_os')
+    mock_obj.path.basename = os.path.basename
+    mock_obj.path.join = os.path.join
+    monkeypatch.setattr('tools.bin.simple_service_map.os', mock_obj)
     yield mock_obj
     print(f'{mock_obj} {mock_obj.mock_calls}')
 
@@ -79,21 +82,21 @@ def mock_os_path_exists(monkeypatch):
     ),
 )
 def test_show_services(input_dict, output_dict):
-    status_cache.clear()
+    Host.status_cache.clear()
     assert list(show_services(input_dict)) == output_dict
 
 
-def test_main(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os_path_exists):
-    status_cache.clear()
+def test_main(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os):
+    Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, [])
-    assert result.exit_code == 0
     assert result.output == "phoenix: +AAA, zzz\n"
+    assert result.exit_code == 0
 
 
-def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os_path_exists):
-    status_cache.clear()
+def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os):
+    Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, ["-s"])
-    assert result.exit_code == 0
     assert result.output == "AAA: +phoenix\nzzz: phoenix\n"
+    assert result.exit_code == 0

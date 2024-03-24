@@ -20,7 +20,6 @@ from tools.libs.net_utils import ip_if_not_local
 KA_DIR = "/etc/keepalived/keepalived.d"
 KA_CONFIG_DIR = "/etc/keepalived"
 KA_CHECKS_DIR = os.path.join(KA_CONFIG_DIR, "bin")
-status_cache = defaultdict(dict)  # {host: {service: True/False}}
 
 
 def remote_command(host: str, cmd: list) -> str:
@@ -30,7 +29,7 @@ def remote_command(host: str, cmd: list) -> str:
 @lru_cache(maxsize=50)
 def _remote_command(host: str, cmd: str) -> str:
     if host:
-        run_cmd = ['ssh', host, cmd]
+        run_cmd = ['ssh', '-o', 'ConnectTimeout=2', host, cmd]
     else:
         run_cmd = ['bash', "-c", cmd]
     return check_output(run_cmd, universal_newlines=True, stderr=STDOUT)
@@ -85,6 +84,7 @@ class Host(object):
     Class to represent an host, wits its reachability status
     """
     name: str = attr.ib()
+    status_cache = defaultdict(dict)  # {host: {service: True/False}}
 
     def __attrs_post_init__(self):
         self._is_reachable = None
@@ -94,15 +94,18 @@ class Host(object):
     def is_reachable(self) -> bool:
         if self._is_reachable is None:
             try:
-                self._is_reachable = status_cache[self.name]["ping"]
+                self._is_reachable = self.status_cache[self.name]["ping"]
             except KeyError:
                 self._is_reachable = False
                 try:
                     check_output(["ping", "-c", "3", "-W", "1", self.name], universal_newlines=True)
+                    remote_command(ip_if_not_local(self.name), ["hostname"])
                     self._is_reachable = True
-                except Exception as e:
+                except CalledProcessError as e:
                     self.log.debug(f"Problem with {self}: {e}.\n{e.output}")
-                status_cache[self.name]["ping"] = self._is_reachable
+                except Exception as e:
+                    self.log.debug(f"Problem with {self}: {e}.\n{vars(e)}")
+                self.status_cache[self.name]["ping"] = self._is_reachable
         return self._is_reachable
 
     def check_active_services(self, services: list) -> list:
@@ -250,25 +253,26 @@ class Service(object):
     def is_active_on(self, host: Host) -> bool:
         if self._status[host].active is None:
             try:
-                self._status[host].active = status_cache[host.name][f"+{self.name}"]
+                self._status[host].active = Host.status_cache[host.name][f"+{self.name}"]
                 self.log.debug(f"Returned cache for {host.name}/+{self.name}")
             except KeyError:
                 try:
-                    state = remote_command(ip_if_not_local(host.name), [f"cat '/tmp/{self.name}.state'"]).split("-")[1].strip()
+                    output = remote_command(ip_if_not_local(host.name), [f"cat '/tmp/{self.name}.state'"])
+                    state = output.split("-")[1].strip()
                     self._status[host].active = state == "MASTER"
                 except CalledProcessError as e:
                     self.log.debug(f"{e}\n{e.stdout}")
                     self._status[host].active = False
                 except Exception as e:
-                    self.log.debug(f"{e}")
+                    self.log.debug(f"{output} - {e}")
                     self._status[host].active = False
-                status_cache[host.name][f"+{self.name}"] = self._status[host].active
+                Host.status_cache[host.name][f"+{self.name}"] = self._status[host].active
         return self._status[host].active
 
     def is_running_on(self, host: Host) -> bool:
         if self._status[host].available is None:
             try:
-                self._status[host].available = status_cache[host.name][self.name]
+                self._status[host].available = Host.status_cache[host.name][self.name]
                 self.log.debug(f"Returned cache for {host.name}/{self.name}")
             except KeyError:
                 try:
@@ -280,7 +284,7 @@ class Service(object):
                 except Exception as e:
                     self.log.debug(f"{e}")
                     self._status[host].available = False
-                status_cache[host.name][self.name] = self._status[host].available
+                Host.status_cache[host.name][self.name] = self._status[host].available
         return self._status[host].available
 
     def parse_config(self) -> dict:
@@ -387,16 +391,22 @@ def main(hostnames: set, no_parallel: bool, by_service: bool, query_daemon: bool
     log = setup_logging(verbose)
 
     log.debug(f"Starting with {hostnames}")
-    hc = HostChecker(hostnames, query_daemon)
+    try:
+        hc = HostChecker(hostnames, query_daemon)
+    except Exception as e:
+        log.exception(e)
+        raise
     if no_parallel:
         active_services = defaultdict(list)
         for host in hc.hosts:
+            log.debug(f"Checking {host}")
             if host.is_reachable:
                 log.debug(f"{host} is reachable: checking {hc.service_list}")
                 active_services[host.name].extend(host.check_active_services(hc.service_list))
             else:
                 active_services[host.name] = None
     else:
+        log.debug(f"Checking {hc.hosts}")
         with ThreadPoolExecutor(len(hc.hosts)) as tpool:
             active_services = dict(tpool.map(hc.check_host, hc.hosts))
     if by_service:
