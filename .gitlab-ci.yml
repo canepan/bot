@@ -5,7 +5,7 @@ image: python:3.11
   stage: Test
   script:
     - tox
-  before_script:
+  before_script: &before_script
     - python --version
     - uname -a
     - apt-get update
@@ -32,13 +32,15 @@ unit_test:3.10:
   image: python:3.10
   extends: .tests
   before_script:
-    - apt-get install -y python3.10-dev
+    - *before_script
+    - apt-get install -y libpython3.10-dev
 
 unit_test:3.9:
   image: python:3.9
   extends: .tests
   before_script:
-    - apt-get install -y python3.9-dev
+    - *before_script
+    - apt-get install -y libpython3.9-dev
 
 pages:
   stage: Publish
