@@ -56,7 +56,7 @@ check_dns() {
 _err=0
 for check in e2guardian squid direct dns ping; do
   check_${check}
-  _err=$?
+  _err=$(($? + _err))
 done
 #check_e2guardian
 #_err=$?
