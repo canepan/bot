@@ -1,5 +1,5 @@
 # Using the official Python Docker image as default
-image: python:3.11
+# image: python:3.11
 
 .tests:
   stage: Test
@@ -9,7 +9,7 @@ image: python:3.11
     - python --version
     - uname -a
     - apt-get update
-    - apt-get install -y libldap2-dev libsasl2-dev libpython-dev
+    - apt-get install -y libldap2-dev libsasl2-dev
     - "[ -r requirements.txt ] && pip install -r requirements.txt"
     - pip install tox
 
