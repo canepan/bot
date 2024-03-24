@@ -1,10 +1,10 @@
 # Using the official Python Docker image as default
-# image: python:3.11
+image: python:3.11
 
 .tests:
   stage: Test
   script:
-    - tox
+    - tox -c tox-gitlab.ini
   before_script:
     - python --version
     - uname -a
