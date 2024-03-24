@@ -80,7 +80,8 @@ class ServiceCatalog(object):
 
 @attr.s
 class KeepalivedService(object):
-    git_base = "git@bigbang-01.canne:repos/"
+    # git_base = "git@bigbang-01.canne:repos/"
+    git_base = "http://git.canne/repos/"
     log = logging.getLogger(__name__)
     _repo_path: str = attr.ib()
     _config_dir: str = attr.ib()
@@ -99,7 +100,7 @@ class KeepalivedService(object):
         # not thread safe
         os.chdir(tmp_dir.name)
         repo_name, repo_sub = self._repo_path.split("/", 1)
-        self._run(["git", "clone", f"{self.git_base}{repo_name}"])
+        self._run(["git", "clone", "-n", "--depth=1", "--filter=tree:0", f"{self.git_base}{repo_name}", tmp_dir.name])
         os.chdir(self._repo_path)
 
     def _config_changed(self) -> bool:
