@@ -6,9 +6,6 @@ import logging
 import os
 import shutil
 import socket
-import subprocess
-import time
-from enum import Enum
 from subprocess import check_output
 
 from ..libs.xymon import Xymon, XymonStatus
