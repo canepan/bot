@@ -75,22 +75,22 @@ def mock_os(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "input_dict,output_dict",
+    "input_dict,output_list",
     (
         ({}, []),
-        ({"host": ["s1"]}, [f"{click.style('s1', 'white', bold=True)}: host"]),
+        ({"host": ["s1"]}, [f"{click.style('s1', 'white', bold=True)}: host", "Legend: running"]),
     ),
 )
-def test_show_services(input_dict, output_dict):
+def test_show_services(input_dict, output_list):
     Host.status_cache.clear()
-    assert list(show_services(input_dict)) == output_dict
+    assert list(show_services(input_dict)) == output_list
 
 
 def test_main(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, mock_os):
     Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, [])
-    assert result.output == "phoenix: +AAA, zzz\n"
+    assert result.output == "phoenix: +AAA, zzz\nLegend: running, +active, ~usurper, *failed\n"
     assert result.exit_code == 0
 
 
@@ -98,5 +98,5 @@ def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_no
     Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, ["-s"])
-    assert result.output == "AAA: +phoenix\nzzz: phoenix\n"
+    assert result.output == "AAA: +phoenix\nzzz: phoenix\nLegend: +active, running\n"
     assert result.exit_code == 0

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import enum
 import json
 import logging
 import os
@@ -156,6 +157,7 @@ class Host(object):
                         ka_data[service_name][key] = value
         click.echo(ka_data)
 
+        legend = set()
         for service in services:
             self.log.debug(f"Check {service} on {self}")
             # if service.should_run_on(self):
@@ -163,11 +165,13 @@ class Host(object):
                 # if ka_data[service.is_active_on(self):
                 if ka_data[service.name].get("State") == "MASTER":
                     result.append(active(service.name))
-                # elif service.is_running_on(self):
+                    legend.add(active("active"))
                 elif service.is_running_on(self):
                     result.append(running(service.name))
+                    legend.add(running("running"))
                 else:
                     result.append(failed(service.name))
+                    legend.add(failed("failed"))
             else:
                 self.log.debug(f"{service} should not run on {self}")
         return result
@@ -313,26 +317,37 @@ class Service(object):
         return f"{self.name} ({self.filename}): {', '.join(repr_hosts)}"
 
 
-def show_services_by_host(active_services) -> typing.Iterator[str]:
-    for host, services in active_services.items():
+def show_services_by_host(active_services: dict) -> typing.Iterator[str]:
+    for host, services in sorted(active_services.items()):
         if services is not None:
-            yield f"{click.style(host, 'white', bold=True)}: {', '.join(add_color(service) for service in sorted(services))}"
+            yield (
+                f"{click.style(host, 'white', bold=True)}: "
+                f"{', '.join(add_color(service) for service in sorted(services))}"
+            )
+    yield f"Legend: {add_color(running('running'))}, {add_color(active('active'))}, {add_color(usurper('usurper'))}, {add_color(failed('failed'))}"
 
 
-def show_services(active_services) -> typing.Iterator[str]:
+def show_services(active_services: dict) -> typing.Iterator[str]:
     services_dict = defaultdict(list)
+    legend = set()
     for host, services in active_services.items():
         for service in services or []:
             if is_usurper(service):
                 services_dict[service[1:]].append(usurper(host))
+                legend.add(usurper("usurper"))
             elif is_active(service):
                 services_dict[service[1:]].append(active(host))
+                legend.add(active("active"))
             elif is_failed(service):
                 services_dict[service[1:]].append(failed(host))
+                legend.add(failed("failed"))
             else:
                 services_dict[service].append(running(host))
-    for service, hosts in services_dict.items():
+                legend.add(running("running"))
+    for service, hosts in sorted(services_dict.items()):
         yield f"{click.style(service, 'white', bold=True)}: {', '.join(add_color(host) for host in sorted(hosts))}"
+    if legend:
+        yield f"Legend: {', '.join(sorted(add_color(legend_item) for legend_item in legend))}"
 
 
 def setup_logging(verbose: typing.Optional[bool]) -> logging.Logger:
@@ -395,28 +410,33 @@ def main(hostnames: set, no_parallel: bool, by_service: bool, query_daemon: bool
         hc = HostChecker(hostnames, query_daemon)
     except Exception as e:
         log.exception(e)
-        raise
+        sys.exit(10)
     if no_parallel:
-        active_services = defaultdict(list)
+        active_services = {}
         for host in hc.hosts:
             log.debug(f"Checking {host}")
             if host.is_reachable:
                 log.debug(f"{host} is reachable: checking {hc.service_list}")
-                active_services[host.name].extend(host.check_active_services(hc.service_list))
+                active_services[host.name] = host.check_active_services(hc.service_list)
             else:
                 active_services[host.name] = None
     else:
         log.debug(f"Checking {hc.hosts}")
-        with ThreadPoolExecutor(len(hc.hosts)) as tpool:
+        with ThreadPoolExecutor(min(50, len(hc.hosts))) as tpool:
             active_services = dict(tpool.map(hc.check_host, hc.hosts))
     if by_service:
         output_lines = show_services(active_services)
     else:
         output_lines = show_services_by_host(active_services)
     log.debug(f"Unreachable: {', '.join(h for h, s in active_services.items() if s is None)}")
-    for line in sorted(output_lines):
+    for line in output_lines:
         click.echo(line)
 
 
 if __name__ == "__main__":
     main()
+#!/usr/bin/env python3
+import json
+import logging
+import os
+import re
