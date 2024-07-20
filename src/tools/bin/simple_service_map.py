@@ -68,6 +68,9 @@ def is_failed(name: str) -> bool:
     return name.startswith("*")
 
 
+STATES = {f(""): f for f in (active, failed, running, usurper)}
+
+
 def add_color(text: str) -> str:
     if is_failed(text):
         return click.style(text, "red", bold=True)
@@ -317,14 +320,63 @@ class Service(object):
         return f"{self.name} ({self.filename}): {', '.join(repr_hosts)}"
 
 
+@attr.s
+class KeyDisplay(object):
+    key: str = attr.ib()
+
+    def __str__(self):
+        return click.style(self.key, 'white', bold=True)
+
+
+class Mood(enum.Enum):
+    active = active
+    failed = failed
+    running = running
+    usurper = usurper
+
+
+@attr.s
+class ValueDisplay(object):
+    value: str = attr.ib()
+    _mood: Mood = attr.ib(init=False, default=None)
+
+    def mood(self):
+        return self._mood
+
+    def __str__(self):
+        return add_color(self.value)
+
+
+@attr.s
+class ValuesDisplay(object):
+    values: typing.Iterable[ValueDisplay] = attr.ib()
+    legend: typing.Iterable[ValueDisplay] = attr.ib(default=attr.Factory(list))
+
+    def display(self, value):
+        self.legend.add(value.mood(value.mood.name))
+
+    def __str__(self):
+        return ", ".join(self.display(v) for v in self.values)
+
+
+def items_displayer(items: typing.Iterable):
+    legend = set()
+    for key, values in ((k, v) for (k, v) in sorted(items) if v):
+        colored_values = list()
+        for value in sorted(values or []):
+            colored_values.append(add_color(value))
+            if value[0] in STATES:
+                legend.add(add_color(f"{value[0]}{STATES[value[0]].__name__}"))
+            else:
+                legend.add(add_color(STATES[""].__name__))
+        yield f"{click.style(key, 'white', bold=True)}: {', '.join(colored_values)}"
+    if legend:
+        yield f"Legend: {', '.join(sorted(legend))}"
+
+
 def show_services_by_host(active_services: dict) -> typing.Iterator[str]:
-    for host, services in sorted(active_services.items()):
-        if services is not None:
-            yield (
-                f"{click.style(host, 'white', bold=True)}: "
-                f"{', '.join(add_color(service) for service in sorted(services))}"
-            )
-    yield f"Legend: {add_color(running('running'))}, {add_color(active('active'))}, {add_color(usurper('usurper'))}, {add_color(failed('failed'))}"
+    for line in items_displayer(active_services.items()):
+        yield line
 
 
 def show_services(active_services: dict) -> typing.Iterator[str]:
@@ -344,10 +396,8 @@ def show_services(active_services: dict) -> typing.Iterator[str]:
             else:
                 services_dict[service].append(running(host))
                 legend.add(running("running"))
-    for service, hosts in sorted(services_dict.items()):
-        yield f"{click.style(service, 'white', bold=True)}: {', '.join(add_color(host) for host in sorted(hosts))}"
-    if legend:
-        yield f"Legend: {', '.join(sorted(add_color(legend_item) for legend_item in legend))}"
+    for line in items_displayer(services_dict.items()):
+        yield line
 
 
 def setup_logging(verbose: typing.Optional[bool]) -> logging.Logger:

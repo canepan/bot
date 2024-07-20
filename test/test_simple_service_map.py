@@ -90,7 +90,7 @@ def test_main(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, moc
     Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, [])
-    assert result.output == "phoenix: +AAA, zzz\nLegend: running, +active, ~usurper, *failed\n"
+    assert result.output == "phoenix: +AAA, zzz\nLegend: +active, running\n"
     assert result.exit_code == 0
 
 
