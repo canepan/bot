@@ -50,6 +50,7 @@ setuptools.setup(
             "config_proxy = tools.bin.config_proxy:main",
             "freedns.py = tools.bin.freedns:main",
             "html-series = tools.bin.html_series:main",
+            "id3-checker = tools.bin.id3checker:cli",
             "ldap_browse = tools.bin.ldap_browser:main [ldap]",
             "openvpn-log = tools.bin.openvpn_log:main",
             "sdiff.py = tools.bin.sdiff:main",

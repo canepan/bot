@@ -13,18 +13,22 @@ Currently I have these services at home:
 * Web server (keepalived)
 * Tool to configure allowlisted applications (i.e. Minecraft, Firefox, etc)
 
+## id3-checker
+From a directory, finds songs recursively and shows artist, title and album, alerting on discrepancies
+
 ## service-map
 * show running, active services
 * reads KeepAlived config (basic)
 * uses ssh for remote nodes
 * click for colors
+* highlight primary/misplaced primary ("usurper")
 
 ## sservice
-This is meant to start/stop a service managed by Keepalived, by getting the latest config from git and backing up the current config before overwriting.  
+Script meant to start/stop a service managed by Keepalived, by getting the latest config from git and backing up the current config before overwriting.  
 It (will) support primary/secondary handling
 
 ## minecraft_ctl
-This allows to disable or enable running Minecraft (by changing permissions, closing the firewall and killing processes).  
+Script to disable or enable running Minecraft (by changing permissions, closing the firewall and killing processes).  
 Currently supports (Mac only):
 * Minecraft
 * Firefox
