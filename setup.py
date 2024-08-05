@@ -12,7 +12,7 @@ for root, dirs, files in os.walk('shell'):
 
 setuptools.setup(
     name='NicolaCanepa_Tools',
-    version='0.1.1',
+    version='0.1.2',
     author='Nicola Canepa',
     author_email='canne74@gmail.com',
     description='Useful tools',
@@ -24,6 +24,7 @@ setuptools.setup(
         'click',
         'click-loglevel',
         'dnspython',
+        'eyed3',
         'netifaces',
         'ping3',
         'requests',

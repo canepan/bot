@@ -16,6 +16,15 @@ Currently I have these services at home:
 ## id3-checker
 From a directory, finds songs recursively and shows artist, title and album, alerting on discrepancies
 
+## minecraft_ctl
+Script to disable or enable running Minecraft (by changing permissions, closing the firewall and killing processes).  
+Currently supports (Mac only):
+* Minecraft
+* Firefox
+* Tor Browser
+* Diablo III
+* Docker
+
 ## service-map
 * show running, active services
 * reads KeepAlived config (basic)
@@ -26,12 +35,3 @@ From a directory, finds songs recursively and shows artist, title and album, ale
 ## sservice
 Script meant to start/stop a service managed by Keepalived, by getting the latest config from git and backing up the current config before overwriting.  
 It (will) support primary/secondary handling
-
-## minecraft_ctl
-Script to disable or enable running Minecraft (by changing permissions, closing the firewall and killing processes).  
-Currently supports (Mac only):
-* Minecraft
-* Firefox
-* Tor Browser
-* Diablo III
-* Docker

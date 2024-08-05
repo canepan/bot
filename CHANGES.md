@@ -1,3 +1,5 @@
+## v0.1.2
+* add eyed3 dependency (for id3-checker)
 ## v0.1.1
 * minimum Python version is 3.8 (due to `:=` usage)
 * fix `logging_utils.py` to use LOG_FORMAT only for stderr, and to limit stderr to DEBUG and stdout to INFO and more

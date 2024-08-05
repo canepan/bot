@@ -31,9 +31,10 @@ def mapped_mock_open(file_contents_dict):
 
 @pytest.fixture
 def mock_os(monkeypatch):
-    mock_obj = mock.Mock(name='os')
+    mock_obj = mock.MagicMock(name='os')
     mock_obj.path.expanduser.side_effect = lambda x: x.replace('~', 'HOME')
     monkeypatch.setattr('tools.bin.backup_mysql.os', mock_obj)
+    monkeypatch.setattr('tools.bin.id3checker.os', mock_obj)
     monkeypatch.setattr('tools.bin.nwn.os', mock_obj)
     monkeypatch.setattr('tools.bin.openvpn_log.os', mock_obj)
     yield mock_obj
