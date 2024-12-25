@@ -35,3 +35,10 @@ Currently supports (Mac only):
 ## sservice
 Script meant to start/stop a service managed by Keepalived, by getting the latest config from git and backing up the current config before overwriting.  
 It (will) support primary/secondary handling
+
+## clean_*
+Various scripts to cleanup output of commands or logs.  
+Use it as a filter in a pipe, like:
+```
+strace -f -p 666 | clean_strace.sh
+```
