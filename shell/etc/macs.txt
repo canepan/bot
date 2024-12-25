@@ -8,9 +8,11 @@ B8:27:EB:82:FB:75 raspy old (Pi Model B+  V1.2)
 B8:27:EB:9F:0E:91 raspy2 (Pi Model 3B V1.2)
 DC:A6:32:50:60:40 raspy3 (Pi model 4)
 DC:A6:32:50:60:41 raspy3 wifi (Pi model 4)
+dc:a6:32:d2:f4:3d raspy3 (Pi model 4) - 20210808
 00:11:32:29:65:2E nas1
 00:1E:C2:0B:33:69 BigMac eth
 00:1E:C2:9E:2E:90 BigMac wifi
+00:23:32:96:e7:16 BigMacSimo eth 192.168.19.118 (Apple, Inc.)
 00:26:B0:E6:2A:54 Mini eth
 00:26:B0:F4:3E:2C Mini wifi
 50:65:F3:3C:6B:7D phoenix eth
@@ -29,7 +31,7 @@ AC:63:BE:1C:F2:89 ??? .115 amazon
 F8:32:E4:0E:0A:F7 ??? android
 00:1C:2B:1B:2B:36 ??? .107 (Alertme.com Limited)
 34:a8:eb:9a:63:68 ??? .112
-60:6D:3C:01:B0:64 ??? .106
+60:6D:3C:01:B0:64 ??? .106 Luxshare Precision Industry Company Limited
 90:17:c8:8d:07:23 ??? .103 NetSurveillance (port 80)
 
 
@@ -37,10 +39,9 @@ F8:32:E4:0E:0A:F7 ??? android
 38:C9:86:23:D9:5A Apple mini-dp-ethernet - 192.168.19.119 (Apple)
 
 BC:4C:C4:98:0C:89 192.168.19.75  ???
-90:17:C8:8D:07:23 192.168.19.103 ???
-F6:D0:08:18:59:01 192.168.19.110 ???
+F6:D0:08:18:59:01 192.168.19.110 MacBookPro 16 Amazon
 34:A8:EB:9A:63:68 192.168.19.112 ???
-18:E8:29:66:EA:F0 192.168.19.125 Ubiquiti
+18:E8:29:66:EA:F0 192.168.19.125 Ubiquiti AmpliFi
 78:BD:BC:21:9E:43 192.168.19.230 Samsung: TV?
 
 20200903
@@ -61,3 +62,76 @@ dc:a6:32:e0:51:78 192.168.19.123 Pi400 (Raspberry Pi Trading Ltd)
 
 20210112
 8c:a9:82:88:1c:70 192.168.19.122 Lenovo Leo laptop
+
+20210808
+# 02:42:ac:12:00:03 172.18.0.3
+10:96:93:ac:c3:89 192.168.19.129 Amazon Technologies Inc.
+4e:35:38:47:67:9c 192.168.19.140 iPhone?
+64:4b:f0:19:87:71 192.168.19.132 CalDigit, Inc
+96:57:32:e9:0a:ab 192.168.19.114
+a4:db:30:d6:15:26 192.168.19.135 Liteon Technology Corporation
+c6:cc:51:f8:5c:a2 192.168.19.144
+
+20211105
+4c:ef:c0:e1:1e:39 192.168.19.122 eco e riverbero (Amazon Echo)
+
+20211211
+c8:63:f1:bc:ea:42 192.168.19.124 PS4 - Sony Interactive Entertainment Inc.
+f0:f0:a4:a5:ea:b9 192.168.19.131 Show8 - Amazon Technologies Inc.
+b8:27:eb:48:57:59 192.168.19.130 PiZeroW OctoPi - Raspberry Pi Foundation
+
+20220105
+5a:59:d0:3a:a5:21 192.168.19.146
+e4:5f:01:43:ae:41 192.168.19.130 PiZeroW2 OctoPi - Raspberry Pi Trading Ltd
+
+20220323
+34:29:8f:15:b3:fe 192.168.19.108 IEEE Registration Authority
+a8:cc:6f:00:40:c5 192.168.19.115 HMD Global Oy
+f8:54:b8:51:97:be 192.168.19.109 Amazon Technologies Inc.
+
+20221009
+ec:8a:c4:a6:0c:39 192.168.19.136
+20:b0:01:f8:81:c0 192.168.1.254 (Parma) router fastweb - Technicolor Delivery Technologies Belgium NV
+f2:f3:db:84:f6:9f 192.168.1.110 (Parma) ???
+
+20230809
+# ML110 G5
+# 08:53:06 dhcp,warning Dhcp_19 offering lease 192.168.19.114 for 18:A9:05:FB:CD:13 without success
+
+20230705
+c8:7f:54:02:dd:08 192.168.19.130 ASUSTek COMPUTER INC.
+
+20240301
+14:49:d4:90:22:45 192.168.19.21 Xiaomi Communications Co Ltd - Nicola's Xiaomi
+14:ab:02:26:92:0c 192.168.19.123 HUAWEI TECHNOLOGIES CO.,LTD - solar panel inverter
+18:e8:29:99:08:98 192.168.19.139 Ubiquiti Inc - new access point 2024
+28:87:ba:37:53:84 192.168.19.102 TP-Link Corporation Limited ???
+28:cd:c1:0e:0e:c8 192.168.19.131 Raspberry Pi Trading Ltd
+28:cd:c1:0e:0e:ca 192.168.19.136 Raspberry Pi Trading Ltd
+54:af:97:60:f4:ff 192.168.19.105 TP-Link Corporation Limited ???
+54:af:97:61:19:77 192.168.19.115 TP-Link Corporation Limited ???
+70:03:9f:91:1f:cc 192.168.19.148 Espressif Inc. ???
+a6:8f:56:4f:98:63 192.168.19.110
+b8:27:eb:ca:5b:c4 192.168.19.144 Raspberry Pi Foundation - raspy2 (Pi Model 3B V1.2) wifi
+
+20240928
+08:91:15:b4:40:5c 192.168.19.142 Amazon Technologies Inc. - Show 10
+2c:cf:67:28:50:3a 192.168.19.149 Raspberry Pi (Trading - lheaven
+2c:cf:67:28:50:3b 192.168.19.129 Raspberry Pi (Trading - lheaven wifi
+80:a9:97:33:06:66 192.168.19.140 Apple, Inc. - MacAzon M3 Pro
+02:42:ac:12:00:02 172.18.0.2
+02:42:ac:14:00:05 172.20.0.5
+02:42:ac:14:00:06 172.20.0.6
+02:42:ac:15:00:02 172.21.0.2
+02:42:ac:19:00:02 172.25.0.2
+
+20241210
+# 06:6d:88:5a:54:ba 192.168.19.129
+# 14:3f:a6:b1:46:b5 192.168.19.117 Sony Home Entertainment&Sound Products Inc
+2c:cf:67:71:71:f0 192.168.19.134 Raspberry Pi (Trading - Pi5Kit - walle-wifi
+2c:cf:67:71:71:ef 192.168.19.144 Raspberry Pi (Trading - Pi5Kit - walle
+# e8:51:9e:55:83:1c 192.168.19.126 Guangzhou Shiyuan Electronic Technology Company Limited
+
+20241215
+b8:27:eb:7a:db:ad 192.168.19.135 Raspberry Pi Foundation (???)
+
