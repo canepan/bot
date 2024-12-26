@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3.9
 import argparse
 import gzip
 import json
@@ -6,9 +6,13 @@ import logging
 import os
 import shutil
 import socket
+import sys
 from subprocess import check_output
 
-from ..libs.xymon import Xymon, XymonStatus
+try:
+    from ..libs.xymon import Xymon, XymonStatus
+except (ImportError, ValueError):
+    from tools.libs.xymon import Xymon, XymonStatus
 
 
 APP_NAME = "Speedtest"
@@ -18,9 +22,13 @@ MAX_LOG_SIZE = 1048576
 
 def tail(infile):
     with open(infile, "rb") as f:
+        line = ""
         f.seek(-2, os.SEEK_END)  # Jump to the second last byte.
-        while f.read(1) != b"\n":  # Until EOL is found...
+        while (curr_char := f.read(1)) != b"\n":  # Until EOL is found...
             f.seek(-2, os.SEEK_CUR)  # ...jump back the read byte plus one more.
+            line = f"{curr_char}{line}"
+            if "ERROR" in line and curr_char == b"\n":
+                f.seek(-1, os.SEEK_CUR)  # ...jump back one more.
         last = f.readline()
     return last
 
@@ -62,6 +70,7 @@ def main(argv=sys.argv[1:]):
         default="/var/log/xymon/speedtestpy.log",
         help="Logfile for speedtest.py",
     )
+    # parser.add_argument("--verbose", "-v", action="store_true")
     cfg = parser.parse_args(argv)
     cfg.log = logging.getLogger(APP_NAME)
     if cfg.debug:
@@ -74,10 +83,10 @@ def main(argv=sys.argv[1:]):
 
     record = None
     try:
-        record = parse_line(tail(cfg.input_file), log)
+        record = parse_line(tail(cfg.input_file), cfg.log)
     except Exception as e:
         cfg.log.exception(e)
-        record = parse_line(None)
+        record = parse_line(None, cfg.log)
 
     if record is None:
         record = {"upload": -1, "download": -1, "ping": -1}
@@ -89,7 +98,7 @@ def main(argv=sys.argv[1:]):
         status = XymonStatus.YELLOW
     else:
         status = XymonStatus.GREEN
-    Xymon(cfg, "ispeed").send_status(
+    Xymon(cfg, APP_NAME, "ispeed").send_status(
         status,
         "upload_speed: {upload}\n"
         "download_speed: {download}\n"
@@ -97,5 +106,5 @@ def main(argv=sys.argv[1:]):
     )
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and __package__ is None:
     main()

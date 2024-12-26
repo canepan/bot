@@ -35,14 +35,14 @@ def mock_time(monkeypatch):
     ((XymonStatus.GREEN, "All OK"), (XymonStatus.YELLOW, "Not great"), (XymonStatus.RED, "The end is nigh")),
 )
 def test_xymon(mock_check_output, mock_os, mock_socket, mock_time, status, message):
-    x = Xymon(mock.Mock(name="cfg", debug=False), "my_check_name")
+    x = Xymon(mock.Mock(name="cfg", debug=False), "test_app", "my_check_name")
     x.send_status(status, message)
     text = f"status my,fqdn,tld.my_check_name {status.value} {mock_time.asctime.return_value}\n{message}"
     mock_check_output.assert_called_with(["xymon", "192.168.0.68", text])
 
 
 def test_xymon_debug(mock_check_output, mock_os, mock_socket, mock_time):
-    x = Xymon(mock.Mock(name="cfg", debug=True), "my_check_name")
+    x = Xymon(mock.Mock(name="cfg", debug=True), "test_app", "my_check_name")
     x.send_status(XymonStatus.GREEN, "OK")
     text = f"status my,fqdn,tld.my_check_name green {mock_time.asctime.return_value}\nOK"
     mock_check_output.assert_called_with(["echo", "xymon", "192.168.0.68", text])

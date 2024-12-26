@@ -15,12 +15,12 @@ class XymonStatus(Enum):
 
 
 class Xymon(object):
-    def __init__(self, cfg, check_name):
+    def __init__(self, cfg, app_name, check_name):
         os.environ["PATH"] += ":/usr/lib/xymon/client/bin"
         self.check_name = check_name
         self.host = (os.environ.get('CLIENTHOSTNAME', None) or socket.getfqdn()).replace(".", ",")
         self.debug = cfg.debug
-        self._log = logging.getLogger(f"{APP_NAME}.{self.__class__.__name__}")
+        self._log = logging.getLogger(f"{app_name}.{self.__class__.__name__}")
 
     def send_status(self, status: XymonStatus, message: str):
         if self.debug:
