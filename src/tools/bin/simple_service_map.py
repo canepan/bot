@@ -57,7 +57,7 @@ def running(name: str) -> str:
 
 
 def is_running(name: str) -> bool:
-    return not (failed(name) or active(name))
+    return bool(re.match('[A-Za-z]', name))
 
 
 def failed(name: str) -> str:
@@ -92,7 +92,29 @@ class Host(object):
 
     def __attrs_post_init__(self):
         self._is_reachable = None
+        self._ids = None
+        self._ips = None
         self.log = logging.getLogger(__name__)
+
+    @property
+    def ids(self) -> typing.Set[str]:
+        if self._ids is None:
+            self._ids = [ip.split(".")[3] for ip in self.ips]
+        return self._ids
+
+    @property
+    def ips(self) -> typing.Set[str]:
+        if self._ips is None:
+            try:
+                self._ips = self.status_cache[self.name]["ips"]
+                self.log.debug(f"Found {self._ips} in {self.status_cache[self.name]}")
+            except KeyError:
+               self._ips = set()
+               for ip_line in remote_command(ip_if_not_local(self.name), ["ip", "-o", "ad", "show", "dev", "eth0", "secondary"]).splitlines():
+                   ip = re.sub(" .*$", "", re.sub("^.*inet ", "", ip_line))
+                   self._ips.add(ip.split("/")[0])
+                   self.log.debug(f"Found {ip} in {ip_line}. Now {self._ips=}")
+        return self._ips
 
     @property
     def is_reachable(self) -> bool:
@@ -125,6 +147,11 @@ class Host(object):
                     result.append(running(service.name))
                 else:
                     result.append(failed(service.name))
+                if not service.has_ip_on(self):
+                    result[-1] = result[-1].replace("+", "-")
+                    self.log.debug(f"ID {service.service_dict.get('id', '')} not found in {self.ids} for {service} ({service.service_dict})")
+                else:
+                    self.log.debug(f"Found IP for {service}")
             else:
                 self.log.debug(f"{service} should not run on {self}")
         return result
@@ -137,7 +164,7 @@ class Host(object):
         try:
             ka_statuses = remote_command(
                 ip_if_not_local(self.name),
-                ["killall", "-USR1", "keepalived", ";", "cat /tmp/keepalived.data"]
+                ["killall", "-USR1", "keepalived", ";", "cat", "/tmp/keepalived.data"]
             )
         except CalledProcessError as e:
             ka_statuses = ""
@@ -148,7 +175,7 @@ class Host(object):
             "State",
             "Interface",
         )
-        click.echo(self)
+        self.log.debug(self)
         for line in ka_statuses.splitlines():
             if "Instance" in line and "=" in line:
                 service_name = line.split("=")[1].strip()
@@ -158,7 +185,7 @@ class Host(object):
                     value = line.split("=")[1].strip()
                     if key != "State" or value in ("MASTER", "BACKUP", "FAIL"):
                         ka_data[service_name][key] = value
-        click.echo(ka_data)
+        self.log.debug(ka_data)
 
         legend = set()
         for service in services:
@@ -226,14 +253,13 @@ class Service(object):
         self._check_script = None
         self._service_dict = None
         self._hosts = None
+        self._id = None
         self._status = defaultdict(ServiceStatus)
         self.log = logging.getLogger(__name__)
 
     @property
     def check_script(self):
-        if self._check_script is None:
-            self._service_dict = self.parse_config()
-        return self._check_script
+        return self.service_dict.get("check_script")
 
     @property
     def filename(self):
@@ -241,21 +267,20 @@ class Service(object):
 
     @property
     def hosts(self):
-        if self._hosts is None:
-            self._hosts = self.service_dict.get('vrrp', [])
-        return self._hosts
+        return self.service_dict.get("vrrp", [])
 
     @property
     def name(self):
-        if self._name is None:
-            self._service_dict = self.parse_config()
-        return self._name
+        return self.service_dict.get("name")
 
     @property
     def service_dict(self):
         if self._service_dict is None:
             self._service_dict = self.parse_config()
         return self._service_dict
+
+    def has_ip_on(self, host: Host) -> bool:
+        return self.service_dict.get('id', '') in host.ids
 
     def is_active_on(self, host: Host) -> bool:
         if self._status[host].active is None:
@@ -264,7 +289,7 @@ class Service(object):
                 self.log.debug(f"Returned cache for {host.name}/+{self.name}")
             except KeyError:
                 try:
-                    output = remote_command(ip_if_not_local(host.name), [f"cat '/tmp/{self.name}.state'"])
+                    output = remote_command(ip_if_not_local(host.name), ["cat", f"/tmp/{self.name}.state"])
                     state = output.split("-")[1].strip()
                     self._status[host].active = state == "MASTER"
                 except CalledProcessError as e:
@@ -298,17 +323,32 @@ class Service(object):
         with open(self.filename, 'r') as f:
             self._name = re.sub(r'\.conf$', '', os.path.basename(self.filename))
             self._check_script = os.path.join(KA_CHECKS_DIR, f"check_{self._name}.sh")
+            full_config = {}
+
+            first_line = f.readline()
+            next_is_ip = False
+            for line in f:
+                sline = line.strip()
+                if next_is_ip:
+                    if not line.strip().startswith('#'):
+                        full_config["ip"] = line.split()[0].strip('"')
+                        next_is_ip = False
+                elif sline.startswith("script "):
+                    self._check_script = line.split()[1].strip('"')
+                elif sline.startswith("vrrp_instance "):
+                    self._name = line.split()[1].strip('"')
+                elif sline.startswith("virtual_router_id "):
+                    full_config["id"] = line.split()[1].strip('"')
+                    self.log.debug(f"Found {full_config['id']} from {line}")
+                elif sline.startswith("virtual_ipaddress "):
+                    next_is_ip = True
             try:
-                first_line = f.readline()
-                for line in f:
-                    sline = line.strip()
-                    if sline.startswith("script "):
-                        self._check_script = line.split()[1].strip('"')
-                    elif sline.startswith("vrrp_instance "):
-                        self._name = line.split()[1].strip('"')
-                return json.loads(first_line.lstrip('#').strip())
+                full_config.update(json.loads(first_line.lstrip('#').strip()))
             except json.decoder.JSONDecodeError as e:
                 raise DecodeFirstLineException(f'Error while decoding {filename} ("{first_line}")') from e
+            full_config["check_script"] = self._check_script
+            full_config["name"] = self._name
+            return full_config
 
     def should_run_on(self, host: Host) -> bool:
         if self._status[host].expected is None:
@@ -383,7 +423,7 @@ def show_services(active_services: dict) -> typing.Iterator[str]:
     services_dict = defaultdict(list)
     legend = set()
     for host, services in active_services.items():
-        for service in services or []:
+        for service in set(services or []):
             if is_usurper(service):
                 services_dict[service[1:]].append(usurper(host))
                 legend.add(usurper("usurper"))
@@ -471,8 +511,9 @@ def main(hostnames: set, no_parallel: bool, by_service: bool, query_daemon: bool
             else:
                 active_services[host.name] = None
     else:
-        log.debug(f"Checking {hc.hosts}")
-        with ThreadPoolExecutor(min(50, len(hc.hosts))) as tpool:
+        max_threads = min(50, len(hc.hosts))
+        log.debug(f"Checking {hc.hosts} (max_threads={max_threads})")
+        with ThreadPoolExecutor(max_threads) as tpool:
             active_services = dict(tpool.map(hc.check_host, hc.hosts))
     if by_service:
         output_lines = show_services(active_services)

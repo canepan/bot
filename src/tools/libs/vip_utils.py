@@ -29,6 +29,17 @@ def decode_first_line(filename: str) -> dict:
             raise DecodeFirstLineException(f'Error while decoding {filename} ("{first_line}")') from e
 
 
+@attr.define(repr=False)
+class IpAddress(object):
+    ip_address: str
+    fqdn: str = None
+
+    def __repr__(self):
+        if not self.fqdn:
+            self.fqdn = socket.gethostbyaddr(self.ip_address)[0].split(".")[0]
+        return f"{self.fqdn} ({self.ip_address})"
+
+
 @attr.define
 class KaService(object):
     name: str
@@ -36,6 +47,8 @@ class KaService(object):
     priority: int
     effective_priority: int
     last_transition: str
+    master: IpAddress = attr.field(converter=IpAddress)
+    usurper: bool
 
     def is_running(self):
         return self.priority == self.effective_priority
@@ -48,6 +61,8 @@ class KaService(object):
             priority=int(dict_config["Priority"]),
             effective_priority=int(dict_config["Effective priority"]),
             last_transition=dict_config["Last transition"],
+            master=dict_config.get("Master router", "127.0.0.1"),
+            usurper=dict_config["State"] == "MASTER" and dict_config["Wantstate"] != "MASTER",
         )
 
 
@@ -64,7 +79,7 @@ class KaData(object):
         return self.config[service_name]
 
     @property
-    def services(self) -> str:
+    def services(self) -> dict:
         if self._services is None:
             self.config
         return self._services
@@ -80,15 +95,20 @@ class KaData(object):
                     item_config = {}
                     name = None
                     for line in f:
-                        if line.startswith(" VRRP Instance"):
+                        key = None
+                        if line.startswith("---"):
+                             name = f'* {line.replace("------< ", "").replace(" >------", "").strip()}'
+                             item_config = self._config[name]
+                        elif line.startswith(" VRRP Instance"):
                              if item_config:
                                  self._services[name] = KaService.from_config(item_config)
                                  item_config = {}
                              name = line.strip().split(" = ")[1]
                              item_config["name"] = name
-                        elif line.startswith("---"):
-                             name = f'* {line.replace("------< ", "").replace(" >------", "").strip()}'
-                             item_config = self._config[name]
+                        elif line.endswith(":"):
+                            key = line[:-1].strip()
+                        elif key:
+                            item_config[key] = line
                         else:
                             line = line.strip()
                             if " = " in line:
@@ -96,7 +116,7 @@ class KaData(object):
                             else:
                                 key, value = line.rsplit(" ", 1) if " " in line else ("", line)
                             item_config[key] = value
-                            self._config[name][key] = value
+                            # self._config[name][key] = value
             except Exception as e:
                 self.log.exception(f"Error while opening {self.filename} or decoding line '{line.strip()}': {e}")
         return self._config

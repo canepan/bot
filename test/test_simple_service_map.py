@@ -10,11 +10,24 @@ from tools.bin.simple_service_map import main, show_services, Host
 
 def my_check_output(*args, **kwargs):
     if args[0][0] == "ping":
-        if args[0][-1] != "phoenix":
+        if args[0][-1] == "other":
             raise Exception(args, kwargs)
-    if args[0][0] == "bash":
+    if args[0][0:2] == ["bash", "-c"]:
         if "AAA.state" in args[0][-1]:
             return "now - MASTER - INSTANCE"
+    if args[0][2].startswith("ip ") or args[0][4].startswith("ip "):
+        return "\n".join(
+            [
+                "2: eth0    inet 192.168.19.25/24 scope global secondary eth0\\     valid_lft forever "
+                "preferred_lft forever",
+                "2: eth0    inet 192.168.19.63/24 scope global secondary eth0\\     valid_lft forever "
+                "preferred_lft forever",
+                "2: eth0    inet 192.168.19.222/24 scope global secondary eth0\\     valid_lft forever "
+                "preferred_lft forever",
+                "2: eth0    inet 192.168.19.59/24 scope global secondary eth0\\     valid_lft forever "
+                "preferred_lft forever",
+            ]
+        )
     return '20240226084734 - BACKUP - INSTANCE'
 
 
@@ -54,9 +67,11 @@ def mock_ip_if_not_local(monkeypatch):
 def mock_open(monkeypatch):
     mock_obj = mapped_mock_open(
         {
-            '/etc/keepalived/keepalived.d/aaa.conf': '# {"vrrp": ["phoenix"]}\nvrrp_instance AAA {\n state MASTER}',
-            '/etc/keepalived/keepalived.d/foobar.conf': '# {"vrrp": ["raspy2"]}\nvrrp_instance foobar {\n}',
-            '/etc/keepalived/keepalived.d/zzz.conf': '# {"vrrp": ["other", "phoenix"]}\nvrrp_instance zzz {',
+            '/etc/keepalived/keepalived.d/aaa.conf': '# {"vrrp": ["phoenix"]}\n'
+            'vrrp_instance AAA {\n  state MASTER\n  virtual_router_id 222\n',
+            '/etc/keepalived/keepalived.d/foobar.conf': '# {"vrrp": ["other"]}\nvrrp_instance foobar {\n}',
+            '/etc/keepalived/keepalived.d/zzz.conf': '# {"vrrp": ["raspy2", "phoenix"]}\nvrrp_instance zzz {\n'
+            '  virtual_router_id 222\n  virtual_ipaddress {\n    192.168.19.222/24 dev eth0\n  }\n}',
         }
     )
     monkeypatch.setattr('builtins.open', mock_obj)
@@ -90,7 +105,9 @@ def test_main(mock_open, mock_check_output, mock_glob, mock_ip_if_not_local, moc
     Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, [])
-    assert result.output == "phoenix: +AAA, zzz\nLegend: +active, running\n"
+    if result.exception:
+        raise result.exception
+    assert result.output == "phoenix: -AAA, zzz\nLegend: +active, running\n"
     assert result.exit_code == 0
 
 
@@ -98,5 +115,7 @@ def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_no
     Host.status_cache.clear()
     runner = CliRunner()
     result = runner.invoke(main, ["-s"])
-    assert result.output == "AAA: +phoenix\nzzz: phoenix\nLegend: +active, running\n"
+    if result.exception:
+        raise result.exception
+    assert result.output == "AAA: -phoenix\nzzz: phoenix\nLegend: +active, running\n"
     assert result.exit_code == 0
