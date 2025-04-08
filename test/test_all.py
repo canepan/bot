@@ -1,7 +1,9 @@
 from unittest import mock
+
 import pytest
 
-from tools.bin.all import gethostname, main, HOSTS
+from tools.bin.all import gethostname, main
+from tools.libs.net_utils import HOSTS
 
 
 @pytest.fixture

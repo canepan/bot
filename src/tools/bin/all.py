@@ -10,12 +10,8 @@ from functools import lru_cache
 from subprocess import run, PIPE
 from difflib import unified_diff
 
-try:
-    import dns.query
-    import dns.resolver
-    import dns.zone
-except ModuleNotFoundError:
-    dns = None
+from tools.libs.net_utils import dns, HOSTS, hosts_from_dns
+
 try:
     from tools.libs.parse_args import LoggingArgumentParser
 except Exception:
@@ -23,10 +19,6 @@ except Exception:
 from argparse import ArgumentError
 
 APP_NAME = "BoT.All"
-HOSTS = {
-    'linux': {'phoenix', 'raspy2', 'raspy3', 'raspykey', 'plone-01', 'biglinux', 'octopi', 'pathfinder'},
-    'mac': {'quark', 'bigmac', 'mini'},
-}
 
 
 class CommandResult(object):
@@ -118,30 +110,10 @@ def extend_if_not_me(hosts, hosts_to_add: list) -> list:
     return hosts
 
 
-def hosts_from_dns(dns_zone) -> dict:
-    try:
-        soa_answer = dns.resolver.resolve(dns_zone, 'SOA')
-        full_zone = dns.zone.from_xfr(dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone))
-        all_hosts = {'linux': set(), 'mac': set()}
-        for record_name, dns_record in full_zone.items():
-            txt_rdata = dns_record.get_rdataset(dns.rdataclass.IN, dns.rdatatype.TXT)
-            if txt_rdata:
-                for record_text in [s.decode('utf-8').lower() for t in txt_rdata for s in t.strings]:
-                    if record_text in all_hosts.keys():
-                        all_hosts[record_text].add(record_name.to_text().lower())
-        return all_hosts
-    except AttributeError:
-        return HOSTS
-
-
 def main(argv: list = sys.argv[1:]):
     cfg = parse_args(argv)
     cr = CommandRunner(cfg.command, verbose=cfg.with_errors)
-    if cfg.dns_zone:
-        all_hosts_dict = hosts_from_dns(cfg.dns_zone)
-    else:
-        cfg.log.info('Using hardcoded hosts as requested')
-        all_hosts_dict = HOSTS
+    all_hosts_dict = hosts_from_dns(cfg.dns_zone, cfg.log)
     hosts = list(cfg.extra)
     if cfg.linux:
         extend_if_not_me(hosts, all_hosts_dict['linux'])
