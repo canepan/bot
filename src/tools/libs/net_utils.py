@@ -54,17 +54,18 @@ HOSTS = {
 
 
 def hosts_from_dns(dns_zone: typing.Optional[str], log: logging.Logger) -> dict:
-    try:
-        soa_answer = dns.resolver.resolve(dns_zone, 'SOA')
-        full_zone = dns.zone.from_xfr(dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone))
-        all_hosts = {'linux': set(), 'mac': set()}
-        for record_name, dns_record in full_zone.items():
-            txt_rdata = dns_record.get_rdataset(dns.rdataclass.IN, dns.rdatatype.TXT)
-            if txt_rdata:
-                for record_text in [s.decode('utf-8').lower() for t in txt_rdata for s in t.strings]:
-                    if record_text in all_hosts.keys():
-                        all_hosts[record_text].add(record_name.to_text().lower())
-        return all_hosts
-    except AttributeError:
-        log.info('Using hardcoded hosts as requested')
-        return HOSTS
+    if dns_zone:
+        try:
+            soa_answer = dns.resolver.resolve(dns_zone, 'SOA')
+            full_zone = dns.zone.from_xfr(dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone))
+            all_hosts = {'linux': set(), 'mac': set()}
+            for record_name, dns_record in full_zone.items():
+                txt_rdata = dns_record.get_rdataset(dns.rdataclass.IN, dns.rdatatype.TXT)
+                if txt_rdata:
+                    for record_text in [s.decode('utf-8').lower() for t in txt_rdata for s in t.strings]:
+                        if record_text in all_hosts.keys():
+                            all_hosts[record_text].add(record_name.to_text().lower())
+            return all_hosts
+        except AttributeError:
+            log.info('Using hardcoded hosts as requested')
+    return HOSTS
