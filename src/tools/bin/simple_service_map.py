@@ -57,7 +57,7 @@ def running(name: str) -> str:
 
 
 def is_running(name: str) -> bool:
-    return not (failed(name) or active(name))
+    return not (is_failed(name) or active(name))
 
 
 def failed(name: str) -> str:
@@ -112,7 +112,7 @@ class Host(object):
                 self.status_cache[self.name]["ping"] = self._is_reachable
         return self._is_reachable
 
-    def check_active_services(self, services: list) -> list:
+    def check_active_services(self, services: list) -> typing.Optional[list]:
         if services is None:
             return None
         result = []
@@ -308,7 +308,7 @@ class Service(object):
                         self._name = line.split()[1].strip('"')
                 return json.loads(first_line.lstrip('#').strip())
             except json.decoder.JSONDecodeError as e:
-                raise DecodeFirstLineException(f'Error while decoding {filename} ("{first_line}")') from e
+                raise DecodeFirstLineException(f'Error while decoding {self.filename} ("{first_line}")') from e
 
     def should_run_on(self, host: Host) -> bool:
         if self._status[host].expected is None:
@@ -462,14 +462,14 @@ def main(hostnames: set, no_parallel: bool, by_service: bool, query_daemon: bool
         log.exception(e)
         sys.exit(10)
     if no_parallel:
-        active_services = {}
-        for host in hc.hosts:
-            log.debug(f"Checking {host}")
-            if host.is_reachable:
-                log.debug(f"{host} is reachable: checking {hc.service_list}")
-                active_services[host.name] = host.check_active_services(hc.service_list)
-            else:
-                active_services[host.name] = None
+        active_services = defaultdict(list)
+        with click.progressbar(hc.hosts) as hosts:
+            for host in hosts:
+                if host.is_reachable:
+                    log.debug(f"{host} is reachable: checking {hc.service_list}")
+                    active_services[host.name].extend(host.check_active_services(hc.service_list))
+                else:
+                    active_services[host.name] = None
     else:
         log.debug(f"Checking {hc.hosts}")
         with ThreadPoolExecutor(min(50, len(hc.hosts))) as tpool:
