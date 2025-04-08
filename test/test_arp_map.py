@@ -1,7 +1,7 @@
-import pytest
 import re
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
 
 from tools.bin.arp_map import main, ArpMapRecords

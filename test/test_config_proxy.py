@@ -1,4 +1,5 @@
 import logging
+
 import pytest
 
 from tools.bin import config_proxy

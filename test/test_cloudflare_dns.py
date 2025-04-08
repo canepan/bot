@@ -1,7 +1,8 @@
-import pytest
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
+
 from tools.bin.cloudflare_dns import main
 
 

@@ -1,6 +1,7 @@
-import pytest
 import socket
 from unittest import mock
+
+import pytest
 
 from tools.libs import net_utils
 

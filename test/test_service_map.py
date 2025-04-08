@@ -1,8 +1,9 @@
 import os
-import pytest
 from unittest import mock
 
+import pytest
 from click.testing import CliRunner
+
 from tools.bin.service_map import main, ServiceCatalog, ServiceConfig
 
 

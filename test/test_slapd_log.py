@@ -1,4 +1,5 @@
 import os
+
 import pytest
 
 from tools.bin.slapd_log import LdapLog

@@ -1,4 +1,5 @@
 from unittest import mock
+
 import pytest
 
 from tools.libs.text_utils import CompareContents

@@ -1,4 +1,5 @@
 from unittest import mock
+
 import pytest
 
 from tools.bin.minecraft_ctl import DEFAULTS, ProcessManager, main, parse_args

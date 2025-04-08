@@ -1,5 +1,6 @@
-import pytest
 from unittest import mock
+
+import pytest
 
 
 def mapped_mock_open(file_contents_dict):

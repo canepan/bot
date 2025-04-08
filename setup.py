@@ -25,7 +25,7 @@ setuptools.setup(
         'click-loglevel',
         'dnspython',
         'eyed3',
-        'netifaces',
+        'netifaces-plus',
         'ping3',
         'requests',
         'typing;python_version<"3.7"',

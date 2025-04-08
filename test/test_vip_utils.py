@@ -1,4 +1,5 @@
 from unittest import mock
+
 import pytest
 
 from tools.libs.vip_utils import is_proxy

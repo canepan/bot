@@ -1,5 +1,6 @@
-import pytest
 from unittest import mock
+
+import pytest
 
 from tools.bin import openvpn_log
 

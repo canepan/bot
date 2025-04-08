@@ -1,9 +1,10 @@
-import click
 import os
-import pytest
 from unittest import mock
 
+import click
+import pytest
 from click.testing import CliRunner
+
 from conftest import mapped_mock_open
 from tools.bin.simple_service_map import main, show_services, Host
 
@@ -100,3 +101,10 @@ def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_no
     result = runner.invoke(main, ["-s"])
     assert result.output == "AAA: +phoenix\nzzz: phoenix\nLegend: +active, running\n"
     assert result.exit_code == 0
+    assert result.output == "AAA: +phoenix\nzzz: phoenix\n"
+
+
+def test_is_reachable(mock_check_output):
+    Host.status_cache.clear()
+
+    assert Host("some_host").is_reachable

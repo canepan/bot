@@ -1,4 +1,5 @@
 from unittest import mock
+
 import pytest
 
 from tools.bin.total_block import main, user_if_not_me

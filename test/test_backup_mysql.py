@@ -1,4 +1,5 @@
 from unittest import mock
+
 import pytest
 
 from tools.bin.backup_mysql import main
