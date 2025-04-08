@@ -101,10 +101,15 @@ def test_main_per_service(mock_open, mock_check_output, mock_glob, mock_ip_if_no
     result = runner.invoke(main, ["-s"])
     assert result.output == "AAA: +phoenix\nzzz: phoenix\nLegend: +active, running\n"
     assert result.exit_code == 0
-    assert result.output == "AAA: +phoenix\nzzz: phoenix\n"
 
 
-def test_is_reachable(mock_check_output):
+def test_is_reachable(mock_check_output, mock_ip_if_not_local):
     Host.status_cache.clear()
 
-    assert Host("some_host").is_reachable
+    assert Host("phoenix").is_reachable
+
+
+def test_is_reachable_exc(mock_check_output):
+    Host.status_cache.clear()
+
+    assert Host("some_host").is_reachable is False
