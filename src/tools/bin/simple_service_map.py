@@ -21,7 +21,7 @@ from tools.libs.net_utils import ip_if_not_local
 KA_DIR = "/etc/keepalived/keepalived.d"
 KA_CONFIG_DIR = "/etc/keepalived"
 KA_CHECKS_DIR = os.path.join(KA_CONFIG_DIR, "bin")
-
+LOCAL_SUBNET_TEMPLATE = "192.168.19.{}/24"
 
 def remote_command(host: str, cmd: list) -> str:
     return _remote_command(host, " ".join(cmd))
@@ -298,17 +298,30 @@ class Service(object):
         with open(self.filename, 'r') as f:
             self._name = re.sub(r'\.conf$', '', os.path.basename(self.filename))
             self._check_script = os.path.join(KA_CHECKS_DIR, f"check_{self._name}.sh")
+            full_config = {}
+            first_line = f.readline()
             try:
-                first_line = f.readline()
-                for line in f:
-                    sline = line.strip()
-                    if sline.startswith("script "):
-                        self._check_script = line.split()[1].strip('"')
-                    elif sline.startswith("vrrp_instance "):
-                        self._name = line.split()[1].strip('"')
-                return json.loads(first_line.lstrip('#').strip())
+                full_config = json.loads(first_line.lstrip('#').strip())
+                if "id" in full_config:
+                    full_config["ip"] = LOCAL_SUBNET_TEMPLATE.format(full_config["id"])
             except json.decoder.JSONDecodeError as e:
                 raise DecodeFirstLineException(f'Error while decoding {filename} ("{first_line}")') from e
+            next_is_ip = False
+            # cl contains the line with "#" comments removed and no leading/trailing spaces
+            for line in [cl for l in f if (cl := l.split("#")[0].strip())]:
+                if next_is_ip:
+                    full_config["ip"] = line.split()[0].strip('"')
+                    next_is_ip = False
+                elif line.startswith("script "):
+                    self._check_script = line.split()[1].strip('"')
+                elif line.startswith("vrrp_instance "):
+                    self._name = line.split()[1].strip('"')
+                elif line.startswith("virtual_router_id "):
+                    full_config["id"] = line.split()[1].strip('"')
+                    self.log.debug(f"Found id={full_config['id']} from {line}")
+                elif line.startswith("virtual_ipaddress "):
+                    next_is_ip = True
+            return full_config
 
     def should_run_on(self, host: Host) -> bool:
         if self._status[host].expected is None:
