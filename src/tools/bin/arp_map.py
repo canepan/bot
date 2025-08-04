@@ -13,14 +13,26 @@ KNOWN_HOSTS = ['raspy2', 'raspy3', 'phoenix', 'raspym2', 'plone-01']
 class ArpMapRecord(object):
     seen_names: dict = {}
 
-    def __init__(self, fqdn: str = None, ip: str = None, mac: str = None, interface: str = None, known_hosts_styler: callable = None, duplicate_hosts_styler: callable = None):
+    def __init__(
+        self,
+        fqdn: str = None,
+        ip: str = None,
+        mac: str = None,
+        interface: str = None,
+        known_hosts_styler: callable = None,
+        duplicate_hosts_styler: callable = None,
+    ):
         self.fqdn = fqdn
         self.ip = ip
         self.mac = mac
         self.interface = interface
         self.name = self.fqdn if self.fqdn != "?" else self.ip
-        self.known_hosts_styler = known_hosts_styler if known_hosts_styler is not None else lambda x: click.style(x, 'green')
-        self.duplicate_hosts_styler = duplicate_hosts_styler if duplicate_hosts_styler is not None else lambda x: click.style(x, 'red')
+        self.known_hosts_styler = (
+            known_hosts_styler if known_hosts_styler is not None else lambda x: click.style(x, 'green')
+        )
+        self.duplicate_hosts_styler = (
+            duplicate_hosts_styler if duplicate_hosts_styler is not None else lambda x: click.style(x, 'red')
+        )
         if self.name in ArpMapRecord.seen_names:
             ArpMapRecord.seen_names[self.name] = self.duplicate_hosts_styler(self.name)
         else:
@@ -103,7 +115,7 @@ class LocalMacRecords(object):
                 yield record
 
 
-def add_record_to_list(record: ArpMapRecord, records_list: list) ->  None:
+def add_record_to_list(record: ArpMapRecord, records_list: list) -> None:
     if record.fqdn.split('.')[0].lower() in KNOWN_HOSTS:
         records_list.insert(0, record)
     else:

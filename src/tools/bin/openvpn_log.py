@@ -21,9 +21,9 @@ def main(argv: list = sys.argv[1:]) -> int:
         with open(log_file, 'r') as f:
             lines = f.readlines()
         for line in lines:
-            uniques[tuple(
-                re.sub(r':[0-9]+', ':<port>', w) for w in line.split()[5:] if not re.search(skip_regexp, line)
-            )] = line
+            uniques[
+                tuple(re.sub(r':[0-9]+', ':<port>', w) for w in line.split()[5:] if not re.search(skip_regexp, line))
+            ] = line
         print(''.join(sorted(uniques.values())))
     return skipped
 

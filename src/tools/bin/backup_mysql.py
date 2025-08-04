@@ -11,10 +11,10 @@ from datetime import datetime
 
 class GzipStream(object):
     # input is a filelike object that feeds the input
-    def __init__(self, input, filename = None):
+    def __init__(self, input, filename=None):
         self.input = input
         self.buffer = b''
-        self.zipper = GzipFile(filename, mode = 'wb', fileobj = self)
+        self.zipper = GzipFile(filename, mode='wb', fileobj=self)
 
     def read(self, size=-1):
         if (size < 0) or len(self.buffer) < size:
@@ -43,7 +43,9 @@ class GzipStream(object):
 
 
 def parse_args(argv=sys.argv[1:]):
-    parser = argparse.ArgumentParser(description='Backup all mysql DBs', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description='Backup all mysql DBs', formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument('--output-file', default='/mnt/opt/backup/mysql/{}_all_dump.sql.gz'.format(os.uname().nodename))
     parser.add_argument('--mysql-socket', default='/var/run/mysqld/mysqld.sock')
     parser.add_argument('--debug', default='INFO', choices=('INFO', 'DEBUG', 'WARN', 'ERROR'))
@@ -69,7 +71,7 @@ class FileSize(object):
             self._new_size = os.stat(self.new_file).st_size
         return self._new_size
 
-    def size_difference_percent(self)-> float:
+    def size_difference_percent(self) -> float:
         return (self.new_size - self.old_size) / self.old_size
 
 
@@ -79,7 +81,9 @@ def main(argv: list = sys.argv[1:]):
     _log.addHandler(logging.StreamHandler(sys.stdout))
     _log.setLevel(cfg.debug)
 
-    _output = tempfile.NamedTemporaryFile(delete=False, dir=os.path.dirname(cfg.output_file), prefix=os.path.basename(cfg.output_file))
+    _output = tempfile.NamedTemporaryFile(
+        delete=False, dir=os.path.dirname(cfg.output_file), prefix=os.path.basename(cfg.output_file)
+    )
     _log.info('Running mysqldump')
     command = subprocess.Popen(['mysqldump', '-A', '-S', cfg.mysql_socket], stdout=subprocess.PIPE)
     gzipstream = GzipStream(command.stdout)
