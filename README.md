@@ -16,6 +16,9 @@ Currently I have these services at home:
 ## id3-checker
 From a directory, finds songs recursively and shows artist, title and album, alerting on discrepancies
 
+## tags-report
+From a directory, finds songs recursively and shows discrepancies or misses in ID3 tags
+
 ## minecraft_ctl
 Script to disable or enable running Minecraft (by changing permissions, closing the firewall and killing processes).  
 Currently supports (Mac only):
@@ -24,6 +27,9 @@ Currently supports (Mac only):
 * Tor Browser
 * Diablo III
 * Docker
+
+## qsm
+Quick service map: reads keepalived conf, report services location based on active IPs
 
 ## service-map
 * show running, active services

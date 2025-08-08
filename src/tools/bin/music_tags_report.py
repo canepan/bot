@@ -44,27 +44,29 @@ class Song:
 
     def __post_init__(self):
         self.indexes = {"album": -2, "title": -1, "artist": -3}
+        norm_path = "_".join(filter(None, re.split("[-_\s]", self.path)))
         try:
-            self._year, self._album = self.path.split("/")[self.indexes["album"]].split("-", maxsplit=1)
+            self._year, self._album = norm_path.split("/")[self.indexes["album"]].split("_", maxsplit=1)
         except Exception as e:
             # There could be "CDx" sub-dir
             try:
                 self.indexes["album"] -= 1
                 self.indexes["artist"] -= 1
-                self._year, self._album = self.path.split("/")[self.indexes["album"]].split("-", maxsplit=1)
+                self._year, self._album = norm_path.split("/")[self.indexes["album"]].split("_", maxsplit=1)
             except Exception as e_sub:
                 click.echo(f"Error splitting {self.path} for album/year: {e}; {e_sub}")
         self._album = self._album.replace("_", " ")
         try:
-            self._name = re.sub("^[0-9]+([^0-9 ])* (- )?", "", self.path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
+            # self._name = re.sub("^[0-9]+([^0-9 ])* (- )?", "", norm_path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
+            self._name = re.sub("^[0-9]+[-_.\s]*", "", self.path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
         except Exception as e:
             click.echo(f"Error searching name from {self.path}: {e}")
         try:
-            self._track = re.sub("[^0-9].*$", "", self.path.split("/")[self.indexes["title"]])
+            self._track = re.sub("[^0-9].*$", "", norm_path.split("/")[self.indexes["title"]])
         except Exception as e:
             click.echo(f"Error searching track from {self.path}: {e}")
         try:
-            self._artist = self.path.split("/")[self.indexes["artist"]].replace("_", " ")
+            self._artist = norm_path.split("/")[self.indexes["artist"]].replace("_", " ")
         except Exception as e:
             click.echo(f"Error splitting {self.path} for artist: {e}")
 
@@ -81,11 +83,11 @@ class Song:
         return self._name
 
     @property
-    def track(self) -> str:
+    def track(self) -> int:
         return int(self._track or "0")
 
     @property
-    def year(self) -> str:
+    def year(self) -> int:
         return int(self._year)
 
 
