@@ -97,7 +97,7 @@ def comparable(text_or_int, exact):
 
 
 @click.command()
-@click.argument("sources", nargs=-1) #, type=click.File("r"), nargs=-1)
+@click.argument("sources", nargs=-1)
 def main(sources: list):
     incomplete = defaultdict(list)
     mp3s = chain()
@@ -136,9 +136,12 @@ def main(sources: list):
                         differences += 1
                 else:
                     incomplete[audiofile].append(name)
+        except OSError as e:
+            click.echo(f"Error {e!r} for {mp3} (check your input)")
+            raise e
         except Exception as e:
             click.echo(f"Error {e!r} for {mp3}")
-            raise
+            incomplete[audiofile].append(str(e))
     commands = []
     for k, v in incomplete.items():
         if k.tag:
