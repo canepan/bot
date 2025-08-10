@@ -44,21 +44,23 @@ class Song:
 
     def __post_init__(self):
         self.indexes = {"album": -2, "title": -1, "artist": -3}
-        norm_path = "_".join(filter(None, re.split("[-_\s]", self.path)))
+        norm_path = "_".join(filter(None, re.split(r"[-_\s]", self.path)))
         try:
-            self._year, self._album = norm_path.split("/")[self.indexes["album"]].split("_", maxsplit=1)
+            year, self._album = norm_path.split("/")[self.indexes["album"]].split("_", maxsplit=1)
+            self._year = int(year)
         except Exception as e:
             # There could be "CDx" sub-dir
             try:
                 self.indexes["album"] -= 1
                 self.indexes["artist"] -= 1
-                self._year, self._album = norm_path.split("/")[self.indexes["album"]].split("_", maxsplit=1)
+                year, self._album = norm_path.split("/")[self.indexes["album"]].split("_", maxsplit=1)
+                self._year = int(year)
             except Exception as e_sub:
                 click.echo(f"Error splitting {self.path} for album/year: {e}; {e_sub}")
         self._album = self._album.replace("_", " ")
         try:
             # self._name = re.sub("^[0-9]+([^0-9 ])* (- )?", "", norm_path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
-            self._name = re.sub("^[0-9]+[-_.\s]*", "", self.path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
+            self._name = re.sub(r"^[0-9]+[-_.\s]*", "", self.path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
         except Exception as e:
             click.echo(f"Error searching name from {self.path}: {e}")
         try:
