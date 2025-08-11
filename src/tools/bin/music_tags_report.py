@@ -1,5 +1,6 @@
 #!/mnt/opt/nicola/tools/bin/python3
 import glob
+import logging
 import os
 import re
 import shlex
@@ -14,7 +15,8 @@ import eyed3
 
 def find_mp3s(top: str = ".") -> list:
     for f in glob.iglob(f"{top}/**/*.mp3", recursive=True):
-        yield f
+        if "@eaDir" not in f:
+            yield f
 
 
 def arg_for(k, i) -> str:
@@ -103,6 +105,7 @@ def comparable(text_or_int, exact):
 @click.command()
 @click.argument("sources", nargs=-1)
 def main(sources: list):
+    eyed3.log.setLevel(logging.ERROR)
     incomplete = defaultdict(list)
     mp3s = chain()
     count = 0
