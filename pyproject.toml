@@ -18,7 +18,7 @@ dependencies = [
     'ping3',
     'requests',
     'typing;python_version<"3.7"',
-    'ConfigArgParse'
+    'ConfigArgParse',
 ]
 authors = [
     {name = 'Nicola Canepa', email = 'canne74@gmail.com'},
@@ -26,9 +26,13 @@ authors = [
     # packages=setuptools.find_packages('src', exclude=['.tox', 'test']),
     # package_dir={"": "src"},
     # data_files=data_files,
+classifiers = [
+    'Programming Language :: Python :: 3',
+    'Operating System :: OS Independent',
+]
+license = "MIT"
 
 [project.optional-dependencies]
-dev = [ "pytest" ]
 ldap = [ "python-ldap" ]
 
 [project.scripts]
@@ -72,4 +76,48 @@ exclude = '''
   | dist
 )
 '''
+
+[tool.setuptools]
+packages = {find = {where = ["src"], exclude = [".tox", "test"]}}
+
+[dependency-groups]
+dev = [
+    "tox>=4.28.4",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--verbose",
+    "--doctest-modules",
+    "--cov=tools",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--black",
+    "--mypy",
+    "--flake8",
+    # Uncomment to enforce a minimum code coverage threshold.
+    # "--cov-fail-under=50"
+]
+testpaths = ["test"]
+
+[tool.coverage.run]
+branch = true
+parallel = true
+omit = [
+    "test/",
+    ".tox/"
+]
+
+[tool.flake8]
+max-complexity = 16
+max-line-length = 120
+
+[tool.mypy]
+ignore_missing_imports = true
+show_column_numbers = true
+show_error_context = false
+strict_optional = false
+follow_imports = "skip"
 
