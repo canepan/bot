@@ -121,3 +121,7 @@ show_error_context = false
 strict_optional = false
 follow_imports = "skip"
 
+[tool.distutils.egg_info]
+# This configuration will make the egg-info directory appear in your package's build directory instead of src/
+egg_base = "build"
+
