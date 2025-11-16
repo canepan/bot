@@ -8,15 +8,21 @@ from tools.bin.simple_service_map import Service
 
 
 def main():
-    cmd = ["all.py", "ip -4 -o ad sh dev eth0"]
-    all_lines = check_output(cmd, universal_newlines=True).splitlines()
+    cmd = ["all.py", "ip -4 -o ad sh"]
+    all_lines = [
+        l for l in check_output(cmd, universal_newlines=True).splitlines() if l
+    ]
     cmd = ["ip", "-4", "-o", "ad", "sh", "dev", "eth0"]
     all_lines.extend(
         f"{os.uname().nodename}: {l}" for l in check_output(cmd, universal_newlines=True).splitlines()
     )
     ip_map = {}
-    for line in all_lines:
-        hn, _, _, _, ip, _ = line.split(maxsplit=5)
+    for i, line in enumerate(all_lines):
+        try:
+            hn, _, _, _, ip, _ = line.split(maxsplit=5)
+        except Exception as e:
+            output = "\n".join(all_lines)
+            print(f"Exception parsing {line!r} ({e}, line {i}), full output:\n{output}")
         ip_map[ip] = {"hostname": hn.rstrip(":")}
     configs = {}
     for conf_file in glob("/etc/keepalived/keepalived.d/*.conf"):
