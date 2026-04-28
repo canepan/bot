@@ -7,33 +7,35 @@ from subprocess import check_output
 from tools.bin.simple_service_map import Service
 
 
-def main():
-    cmd = ["all.py", "ip -4 -o ad sh"]
-    all_lines = [
-        l for l in check_output(cmd, universal_newlines=True).splitlines() if l
-    ]
-    cmd = ["ip", "-4", "-o", "ad", "sh", "dev", "eth0"]
-    all_lines.extend(
-        f"{os.uname().nodename}: {l}" for l in check_output(cmd, universal_newlines=True).splitlines()
-    )
+def get_ip_map():
     ip_map = {}
-    for i, line in enumerate(all_lines):
+    cmd = ["all.py", "ip -4 -o ad sh"]
+    lines = check_output(cmd, universal_newlines=True).splitlines()
+    cmd = ["ip", "-4", "-o", "ad", "sh", "dev", "eth0"]
+    local_lines = check_output(cmd, universal_newlines=True).splitlines()
+    hostname = os.uname().nodename
+    lines.extend(f"{hostname}: {l}" for l in local_lines)
+
+    for line in lines:
+        if not line:
+            continue
         try:
             hn, _, _, _, ip, _ = line.split(maxsplit=5)
-        except Exception as e:
-            output = "\n".join(all_lines)
-            print(f"Exception parsing {line!r} ({e}, line {i}), full output:\n{output}")
-        ip_map[ip] = {"hostname": hn.rstrip(":")}
-    configs = {}
-    for conf_file in glob("/etc/keepalived/keepalived.d/*.conf"):
-        service = Service(conf_file)
-        configs[conf_file] = Service(conf_file)
-    for ip, data in ip_map.items():
-        for conf_file, config_content in configs.items():
-            if ip == config_content.service_dict["ip"]:
-                data["name"] = configs[conf_file].name
-                data["config"] = configs[conf_file].service_dict
-                print(f"{data['name']} ({ip}): {data['hostname']}")
+        except ValueError as e:
+            print(f"Skipping unparseable line: {line!r} ({e})")
+            continue
+        ip_map[ip] = hn.rstrip(":")
+    return ip_map
+
+
+def main():
+    ip_map = get_ip_map()
+    services = [Service(f) for f in glob("/etc/keepalived/keepalived.d/*.conf")]
+
+    for svc in services:
+        ip = svc.service_dict["ip"]
+        host = ip_map.get(ip, "no active host")
+        print(f"{svc.name} ({ip}): {host}")
 
 
 if __name__ == "__main__":
