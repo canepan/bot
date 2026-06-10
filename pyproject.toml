@@ -16,7 +16,10 @@ dependencies = [
     'eyed3',
     'netifaces-plus',
     'ping3',
+    'questionary',
     'requests',
+    'rich',
+    'typer',
     'typing;python_version<"3.7"',
     'ConfigArgParse',
 ]
@@ -56,6 +59,7 @@ slapd_log = "tools.bin.slapd_log:main"
 "ssync.py" = "tools.bin.ssync:main"
 tags-report = "tools.bin.music_tags_report:main"
 total_block = "tools.bin.total_block:main"
+vpn-manager = "tools.bin.vpn_manager:app"
 xymon-speedtest = "tools.bin.xymon_speedtest:main"
 
 [tool.black]
