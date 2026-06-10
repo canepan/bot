@@ -35,7 +35,7 @@ def main():
     for svc in services:
         ip = svc.service_dict["ip"]
         host = ip_map.get(ip, "no active host")
-        print(f"{svc.name} ({ip}): {host}")
+        print(f"{svc.name} ({ip}): {host} ({', '.join(svc.hosts)})")
 
 
 if __name__ == "__main__":
