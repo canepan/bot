@@ -23,7 +23,9 @@ import os
 import shutil
 import subprocess
 import sys
+import logging
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import List, Optional, Tuple
 
 import attr
@@ -33,11 +35,22 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+try:  # shared helper that talks to the Xymon server
+    from ..libs.xymon import Xymon, XymonStatus
+except (ImportError, ValueError):  # running as a plain script
+    try:
+        from tools.libs.xymon import Xymon, XymonStatus
+    except ImportError:  # Xymon support unavailable
+        Xymon = None  # type: ignore
+        XymonStatus = None  # type: ignore
+
 APP_NAME = "vpn-manager"
 console = Console()
 
 # Certificates expiring within this many days are flagged as "expiring soon".
 WARN_DAYS = 30
+# Certificates expiring within this many days are reported as critical (red) to Xymon.
+CRIT_DAYS = 7
 
 # Common locations where the easyrsa executable may live.
 _EASYRSA_CANDIDATES = (
@@ -204,19 +217,19 @@ def _ask_confirm(message: str, default: bool = False) -> bool:
     return bool(answer)
 
 
-def _require_pki(era: "EasyRSA") -> bool:
-    if not era.pki_initialised:
+def _require_pki(ersa: "EasyRSA") -> bool:
+    if not ersa.pki_initialised:
         console.print(
-            "No PKI found at {}. Initialise it first.".format(era.pki_dir), style="yellow"
+            "No PKI found at {}. Initialise it first.".format(ersa.pki_dir), style="yellow"
         )
         return False
     return True
 
 
-def _require_ca(era: "EasyRSA") -> bool:
-    if not _require_pki(era):
+def _require_ca(ersa: "EasyRSA") -> bool:
+    if not _require_pki(ersa):
         return False
-    if not era.ca_built:
+    if not ersa.ca_built:
         console.print("No CA found. Build the CA first.", style="yellow")
         return False
     return True
@@ -235,9 +248,9 @@ def _expiry_status(expiry: Optional[datetime]) -> Tuple[str, str, str]:
     return (date_text, "valid ({}d)".format(days), "green")
 
 
-def _render_cert_table(era: "EasyRSA") -> Optional[Table]:
+def _render_cert_table(ersa: "EasyRSA") -> Optional[Table]:
     """Build a rich table of issued certs incl. key presence and expiry, or None."""
-    certs = era.issued_certs()
+    certs = ersa.issued_certs()
     if not certs:
         return None
     table = Table(title="Issued certificates", show_header=True, header_style="bold cyan")
@@ -247,8 +260,8 @@ def _render_cert_table(era: "EasyRSA") -> Optional[Table]:
     table.add_column("Expires")
     table.add_column("Status")
     for idx, name in enumerate(certs, 1):
-        has_key = os.path.isfile(os.path.join(era.pki_dir, "private", "{}.key".format(name)))
-        date_text, status_text, style = _expiry_status(era.cert_expiry(name))
+        has_key = os.path.isfile(os.path.join(ersa.pki_dir, "private", "{}.key".format(name)))
+        date_text, status_text, style = _expiry_status(ersa.cert_expiry(name))
         table.add_row(
             str(idx),
             name,
@@ -259,15 +272,55 @@ def _render_cert_table(era: "EasyRSA") -> Optional[Table]:
     return table
 
 
-def _pick_cert(era: "EasyRSA", message: str, show_expiry: bool = False) -> Optional[str]:
-    certs = era.issued_certs()
+def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int):
+    """Build (XymonStatus, message) describing certificate expiry.
+
+    Overall status is the worst of: red if any cert is expired or within
+    ``crit_days``, yellow if any is within ``warn_days`` (or expiry unknown),
+    else green. Each line is prefixed with an ``&<color>`` tag so Xymon colours
+    it individually.
+    """
+    severity = {"green": 0, "yellow": 1, "red": 2}
+    overall = "green"
+    lines = []
+    certs = ersa.issued_certs()
+    if not certs:
+        return XymonStatus.GREEN, "&green No issued certificates found."
+    now = datetime.now(timezone.utc)
+    for name in certs:
+        expiry = ersa.cert_expiry(name)
+        if expiry is None:
+            color, detail = "yellow", "expiry unknown"
+        else:
+            days = (expiry - now).days
+            date_text = expiry.strftime("%Y-%m-%d")
+            if days < 0:
+                color, detail = "red", "EXPIRED {} ({} days ago)".format(date_text, -days)
+            elif days <= crit_days:
+                color, detail = "red", "expires {} ({} days)".format(date_text, days)
+            elif days <= warn_days:
+                color, detail = "yellow", "expires {} ({} days)".format(date_text, days)
+            else:
+                color, detail = "green", "expires {} ({} days)".format(date_text, days)
+        if severity[color] > severity[overall]:
+            overall = color
+        lines.append("&{color} {name}: {detail}".format(color=color, name=name, detail=detail))
+    status = {"green": XymonStatus.GREEN, "yellow": XymonStatus.YELLOW, "red": XymonStatus.RED}[overall]
+    header = "OpenVPN certificate expiry ({} certs, warn<{}d, crit<{}d)".format(
+        len(certs), warn_days, crit_days
+    )
+    return status, header + "\n" + "\n".join(lines)
+
+
+def _pick_cert(ersa: "EasyRSA", message: str, show_expiry: bool = False) -> Optional[str]:
+    certs = ersa.issued_certs()
     if not certs:
         console.print("No issued certificates found.", style="yellow")
         return None
     if show_expiry:
         choices = [
             questionary.Choice(
-                title="{} - {}".format(name, _expiry_status(era.cert_expiry(name))[1]),
+                title="{} - {}".format(name, _expiry_status(ersa.cert_expiry(name))[1]),
                 value=name,
             )
             for name in certs
@@ -284,63 +337,63 @@ def _pick_cert(era: "EasyRSA", message: str, show_expiry: bool = False) -> Optio
 # ---------------------------------------------------------------------------
 # Menu actions
 # ---------------------------------------------------------------------------
-def action_init_pki(era: "EasyRSA") -> None:
-    if era.pki_initialised:
-        console.print("A PKI already exists at {}.".format(era.pki_dir), style="yellow")
+def action_init_pki(ersa: "EasyRSA") -> None:
+    if ersa.pki_initialised:
+        console.print("A PKI already exists at {}.".format(ersa.pki_dir), style="yellow")
         if not _ask_confirm("Re-initialising DESTROYS all existing keys and certs. Continue?", default=False):
             return
-    era.init_pki()
+    ersa.init_pki()
 
 
-def action_build_ca(era: "EasyRSA") -> None:
-    if not _require_pki(era):
+def action_build_ca(ersa: "EasyRSA") -> None:
+    if not _require_pki(ersa):
         return
-    if era.ca_built and not _ask_confirm(
+    if ersa.ca_built and not _ask_confirm(
         "A CA already exists. Rebuilding it invalidates every issued cert. Continue?", default=False
     ):
         return
     nopass = _ask_confirm("Create the CA key WITHOUT a passphrase?", default=False)
-    era.build_ca(nopass=nopass)
+    ersa.build_ca(nopass=nopass)
 
 
-def action_build_server(era: "EasyRSA") -> None:
-    if not _require_ca(era):
+def action_build_server(ersa: "EasyRSA") -> None:
+    if not _require_ca(ersa):
         return
     name = _ask_text("Server certificate name", default="server")
     if not name:
         return
     nopass = _ask_confirm("Create the key without a passphrase? (typical for servers)", default=True)
-    era.build_server(name=name.strip(), nopass=nopass)
+    ersa.build_server(name=name.strip(), nopass=nopass)
 
 
-def action_build_client(era: "EasyRSA") -> None:
-    if not _require_ca(era):
+def action_build_client(ersa: "EasyRSA") -> None:
+    if not _require_ca(ersa):
         return
     name = _ask_text("Client certificate name")
     if not name or not name.strip():
         console.print("A name is required.", style="red")
         return
     nopass = _ask_confirm("Create the key without a passphrase?", default=True)
-    era.build_client(name=name.strip(), nopass=nopass)
+    ersa.build_client(name=name.strip(), nopass=nopass)
 
 
-def action_revoke(era: "EasyRSA") -> None:
-    if not _require_ca(era):
+def action_revoke(ersa: "EasyRSA") -> None:
+    if not _require_ca(ersa):
         return
-    name = _pick_cert(era, "Select a certificate to revoke:", show_expiry=True)
+    name = _pick_cert(ersa, "Select a certificate to revoke:", show_expiry=True)
     if not name:
         return
     if not _ask_confirm("Really revoke '{}'? This cannot be undone.".format(name), default=False):
         return
-    if era.revoke(name) == 0:
+    if ersa.revoke(name) == 0:
         console.print("Revoked. Regenerating CRL so the change takes effect...", style="green")
-        era.gen_crl()
+        ersa.gen_crl()
 
 
-def action_renew(era: "EasyRSA") -> None:
-    if not _require_ca(era):
+def action_renew(ersa: "EasyRSA") -> None:
+    if not _require_ca(ersa):
         return
-    name = _pick_cert(era, "Select a certificate to renew:", show_expiry=True)
+    name = _pick_cert(ersa, "Select a certificate to renew:", show_expiry=True)
     if not name:
         return
     console.print(
@@ -350,50 +403,91 @@ def action_renew(era: "EasyRSA") -> None:
     )
     if not _ask_confirm("Renew '{}'?".format(name), default=True):
         return
-    if era.renew(name) == 0 and _ask_confirm(
+    if ersa.renew(name) == 0 and _ask_confirm(
         "Regenerate the CRL now (recommended, invalidates the old certificate)?", default=True
     ):
-        era.gen_crl()
+        ersa.gen_crl()
 
 
-def action_gen_crl(era: "EasyRSA") -> None:
-    if _require_ca(era):
-        era.gen_crl()
+def action_gen_crl(ersa: "EasyRSA") -> None:
+    if _require_ca(ersa):
+        ersa.gen_crl()
 
 
-def action_gen_dh(era: "EasyRSA") -> None:
-    if _require_pki(era):
+def action_gen_dh(ersa: "EasyRSA") -> None:
+    if _require_pki(ersa):
         console.print("Generating DH parameters can take a while...", style="yellow")
-        era.gen_dh()
+        ersa.gen_dh()
 
 
-def action_list(era: "EasyRSA") -> None:
-    if not _require_pki(era):
+def action_list(ersa: "EasyRSA") -> None:
+    if not _require_pki(ersa):
         return
-    table = _render_cert_table(era)
+    table = _render_cert_table(ersa)
     if table is None:
         console.print("No issued certificates.", style="yellow")
         return
     console.print(table)
 
 
-def action_show(era: "EasyRSA") -> None:
-    if not _require_pki(era):
+def action_show(ersa: "EasyRSA") -> None:
+    if not _require_pki(ersa):
         return
-    name = _pick_cert(era, "Select a certificate to inspect:", show_expiry=True)
+    name = _pick_cert(ersa, "Select a certificate to inspect:", show_expiry=True)
     if name:
-        era.show_cert(name)
+        ersa.show_cert(name)
 
 
-def _write_ovpn(era: "EasyRSA", name: str, host: str, port: str, proto: str, out_path: str) -> int:
+def _publish_xymon(ersa: "EasyRSA", check_name: str, warn_days: int, crit_days: int, debug: bool) -> int:
+    """Compute the expiry report and send it to the Xymon server.
+
+    Returns 0 on success, non-zero on failure. With ``debug=True`` the Xymon
+    helper echoes the command instead of sending (dry-run).
+    """
+    if Xymon is None or XymonStatus is None:
+        console.print(
+            "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
+        )
+        return 2
+    status, message = _xymon_report(ersa, warn_days=warn_days, crit_days=crit_days)
+    if debug:
+        # Surface what would be sent and let the helper echo the command.
+        logging.basicConfig(level=logging.DEBUG)
+        console.print("[dim]Xymon status:[/dim] {}\n{}".format(status.value, message))
+    try:
+        Xymon(SimpleNamespace(debug=debug), APP_NAME, check_name).send_status(status, message)
+    except Exception as exc:  # network/binary errors shouldn't crash the CLI
+        console.print("Failed to send to Xymon: {}".format(exc), style="bold red")
+        return 1
+    console.print("Published '{}' status to Xymon: {}".format(check_name, status.value), style="green")
+    return 0
+
+
+def action_xymon(ersa: "EasyRSA") -> None:
+    if not _require_pki(ersa):
+        return
+    if Xymon is None:
+        console.print(
+            "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
+        )
+        return
+    status, message = _xymon_report(ersa, warn_days=WARN_DAYS, crit_days=CRIT_DAYS)
+    console.print(Panel(message, title="Xymon report ({})".format(status.value), border_style="cyan", expand=False))
+    debug = _ask_confirm("Dry-run (echo the command instead of sending)?", default=False)
+    if not _ask_confirm("Publish this status to Xymon now?", default=True):
+        return
+    _publish_xymon(ersa, check_name="vpncerts", warn_days=WARN_DAYS, crit_days=CRIT_DAYS, debug=debug)
+
+
+def _write_ovpn(ersa: "EasyRSA", name: str, host: str, port: str, proto: str, out_path: str) -> int:
     """Bundle CA + client cert + key into a single inline .ovpn profile.
 
     Returns 0 on success, non-zero on failure. Used by both the interactive
     menu and the ``export`` sub-command.
     """
-    ca = os.path.join(era.pki_dir, "ca.crt")
-    crt = os.path.join(era.pki_dir, "issued", "{}.crt".format(name))
-    key = os.path.join(era.pki_dir, "private", "{}.key".format(name))
+    ca = os.path.join(ersa.pki_dir, "ca.crt")
+    crt = os.path.join(ersa.pki_dir, "issued", "{}.crt".format(name))
+    key = os.path.join(ersa.pki_dir, "private", "{}.key".format(name))
     for path in (ca, crt, key):
         if not os.path.isfile(path):
             console.print("Missing required file: {}".format(path), style="red")
@@ -441,11 +535,11 @@ def _write_ovpn(era: "EasyRSA", name: str, host: str, port: str, proto: str, out
     return 0
 
 
-def action_export_ovpn(era: "EasyRSA") -> None:
+def action_export_ovpn(ersa: "EasyRSA") -> None:
     """Interactively gather details and export an inline .ovpn profile."""
-    if not _require_ca(era):
+    if not _require_ca(ersa):
         return
-    name = _pick_cert(era, "Select a client certificate to export:")
+    name = _pick_cert(ersa, "Select a client certificate to export:")
     if not name:
         return
     server_host = _ask_text("VPN server hostname/IP", default="vpn.example.com")
@@ -460,7 +554,7 @@ def action_export_ovpn(era: "EasyRSA") -> None:
     out_path = _ask_text("Output file", default=os.path.join(os.getcwd(), "{}.ovpn".format(name)))
     if not out_path:
         return
-    _write_ovpn(era, name=name, host=server_host, port=server_port, proto=proto, out_path=out_path)
+    _write_ovpn(ersa, name=name, host=server_host, port=server_port, proto=proto, out_path=out_path)
 
 
 # ---------------------------------------------------------------------------
@@ -477,11 +571,12 @@ _MENU = (
     ("Generate DH parameters", action_gen_dh),
     ("List certificates", action_list),
     ("Show certificate details", action_show),
+    ("Publish expiry status to Xymon", action_xymon),
     ("Export client .ovpn profile", action_export_ovpn),
 )
 
 
-def _status_panel(era: "EasyRSA") -> Panel:
+def _status_panel(ersa: "EasyRSA") -> Panel:
     def mark(ok: bool) -> str:
         return "[green]ready[/green]" if ok else "[red]missing[/red]"
 
@@ -494,23 +589,23 @@ def _status_panel(era: "EasyRSA") -> Panel:
         "DH      : {dh}\n"
         "Issued  : {n} certificate(s)"
     ).format(
-        dir=era.pki_dir,
-        bin=era.easyrsa,
-        pki=mark(era.pki_initialised),
-        ca=mark(era.ca_built),
-        crl=mark(era.crl_present),
-        dh=mark(era.dh_present),
-        n=len(era.issued_certs()),
+        dir=ersa.pki_dir,
+        bin=ersa.easyrsa,
+        pki=mark(ersa.pki_initialised),
+        ca=mark(ersa.ca_built),
+        crl=mark(ersa.crl_present),
+        dh=mark(ersa.dh_present),
+        n=len(ersa.issued_certs()),
     )
     return Panel(body, title="OpenVPN Certificate Manager", border_style="cyan", expand=False)
 
 
-def menu_loop(era: "EasyRSA") -> None:
+def menu_loop(ersa: "EasyRSA") -> None:
     labels = {label: func for label, func in _MENU}
     quit_label = "Quit"
     while True:
         console.print()
-        console.print(_status_panel(era))
+        console.print(_status_panel(ersa))
         choice = questionary.select(
             "What would you like to do?",
             choices=[label for label, _ in _MENU] + [questionary.Separator(), quit_label],
@@ -521,7 +616,7 @@ def menu_loop(era: "EasyRSA") -> None:
         if action is None:
             continue
         try:
-            action(era)
+            action(ersa)
         except KeyboardInterrupt:
             console.print("\nInterrupted.", style="yellow")
 
@@ -540,7 +635,7 @@ app = typer.Typer(
 )
 
 
-def _build_era(ctx: typer.Context) -> "EasyRSA":
+def _build_ersa(ctx: typer.Context) -> "EasyRSA":
     """Resolve easyrsa + PKI dir from the shared callback options."""
     pki_dir, easyrsa, batch = ctx.obj["pki_dir"], ctx.obj["easyrsa"], ctx.obj["batch"]
     resolved = easyrsa or _find_easyrsa()
@@ -584,10 +679,10 @@ def main(
         )
         raise typer.Exit(code=1)
 
-    era = _build_era(ctx)
-    console.print("Using easyrsa: {}".format(era.easyrsa), style="dim")
+    ersa = _build_ersa(ctx)
+    console.print("Using easyrsa: {}".format(ersa.easyrsa), style="dim")
     try:
-        menu_loop(era)
+        menu_loop(ersa)
     except (KeyboardInterrupt, EOFError):
         console.print()
     console.print("Bye.", style="cyan")
@@ -597,7 +692,7 @@ def main(
 @app.command("init-pki")
 def cmd_init_pki(ctx: typer.Context) -> None:
     """Initialise a fresh PKI."""
-    raise typer.Exit(code=_build_era(ctx).init_pki())
+    raise typer.Exit(code=_build_ersa(ctx).init_pki())
 
 
 @app.command("build-ca")
@@ -606,7 +701,7 @@ def cmd_build_ca(
     nopass: bool = typer.Option(False, "--nopass", help="Create the CA key without a passphrase."),
 ) -> None:
     """Build the Certificate Authority."""
-    raise typer.Exit(code=_build_era(ctx).build_ca(nopass=nopass))
+    raise typer.Exit(code=_build_ersa(ctx).build_ca(nopass=nopass))
 
 
 @app.command("build-server")
@@ -616,7 +711,7 @@ def cmd_build_server(
     nopass: bool = typer.Option(True, "--nopass/--pass", help="Create the key without a passphrase."),
 ) -> None:
     """Issue a server certificate."""
-    raise typer.Exit(code=_build_era(ctx).build_server(name=name, nopass=nopass))
+    raise typer.Exit(code=_build_ersa(ctx).build_server(name=name, nopass=nopass))
 
 
 @app.command("build-client")
@@ -626,7 +721,7 @@ def cmd_build_client(
     nopass: bool = typer.Option(True, "--nopass/--pass", help="Create the key without a passphrase."),
 ) -> None:
     """Issue a client certificate."""
-    raise typer.Exit(code=_build_era(ctx).build_client(name=name, nopass=nopass))
+    raise typer.Exit(code=_build_ersa(ctx).build_client(name=name, nopass=nopass))
 
 
 @app.command("revoke")
@@ -636,10 +731,10 @@ def cmd_revoke(
     gen_crl: bool = typer.Option(True, "--gen-crl/--no-gen-crl", help="Regenerate the CRL after revoking."),
 ) -> None:
     """Revoke a certificate (and regenerate the CRL by default)."""
-    era = _build_era(ctx)
-    rc = era.revoke(name)
+    ersa = _build_ersa(ctx)
+    rc = ersa.revoke(name)
     if rc == 0 and gen_crl:
-        rc = era.gen_crl()
+        rc = ersa.gen_crl()
     raise typer.Exit(code=rc)
 
 
@@ -650,30 +745,30 @@ def cmd_renew(
     gen_crl: bool = typer.Option(True, "--gen-crl/--no-gen-crl", help="Regenerate the CRL after renewing."),
 ) -> None:
     """Renew a certificate, reusing its key (EasyRSA >= 3.0.6)."""
-    era = _build_era(ctx)
-    rc = era.renew(name)
+    ersa = _build_ersa(ctx)
+    rc = ersa.renew(name)
     if rc == 0 and gen_crl:
-        rc = era.gen_crl()
+        rc = ersa.gen_crl()
     raise typer.Exit(code=rc)
 
 
 @app.command("gen-crl")
 def cmd_gen_crl(ctx: typer.Context) -> None:
     """Generate the Certificate Revocation List."""
-    raise typer.Exit(code=_build_era(ctx).gen_crl())
+    raise typer.Exit(code=_build_ersa(ctx).gen_crl())
 
 
 @app.command("gen-dh")
 def cmd_gen_dh(ctx: typer.Context) -> None:
     """Generate Diffie-Hellman parameters."""
-    raise typer.Exit(code=_build_era(ctx).gen_dh())
+    raise typer.Exit(code=_build_ersa(ctx).gen_dh())
 
 
 @app.command("list")
 def cmd_list(ctx: typer.Context) -> None:
     """List issued certificates with key presence and expiry status."""
-    era = _build_era(ctx)
-    table = _render_cert_table(era)
+    ersa = _build_ersa(ctx)
+    table = _render_cert_table(ersa)
     if table is None:
         console.print("No issued certificates.", style="yellow")
         return
@@ -686,7 +781,25 @@ def cmd_show(
     name: str = typer.Argument(..., help="Certificate name to inspect."),
 ) -> None:
     """Show details of a certificate."""
-    raise typer.Exit(code=_build_era(ctx).show_cert(name))
+    raise typer.Exit(code=_build_ersa(ctx).show_cert(name))
+
+
+@app.command("xymon")
+def cmd_xymon(
+    ctx: typer.Context,
+    check_name: str = typer.Option("vpncerts", "--check-name", help="Xymon column/test name."),
+    warn_days: int = typer.Option(WARN_DAYS, "--warn-days", help="Yellow if a cert expires within this many days."),
+    crit_days: int = typer.Option(CRIT_DAYS, "--crit-days", help="Red if a cert expires within this many days."),
+    debug: bool = typer.Option(False, "--debug/--send", help="Dry-run: echo the command instead of sending."),
+) -> None:
+    """Publish certificate expiry status to Xymon (suited for cron).
+
+    Sends to the servers in $XYMONSERVERS using the 'xymon' client binary.
+    """
+    rc = _publish_xymon(
+        _build_ersa(ctx), check_name=check_name, warn_days=warn_days, crit_days=crit_days, debug=debug
+    )
+    raise typer.Exit(code=rc)
 
 
 @app.command("export")
@@ -699,9 +812,9 @@ def cmd_export(
     out: Optional[str] = typer.Option(None, "--out", help="Output .ovpn path (default: ./<name>.ovpn)."),
 ) -> None:
     """Export an inline .ovpn client profile (CA + cert + key)."""
-    era = _build_era(ctx)
+    ersa = _build_ersa(ctx)
     out_path = out or os.path.join(os.getcwd(), "{}.ovpn".format(name))
-    rc = _write_ovpn(era, name=name, host=host, port=str(port), proto=proto, out_path=out_path)
+    rc = _write_ovpn(ersa, name=name, host=host, port=str(port), proto=proto, out_path=out_path)
     raise typer.Exit(code=rc)
 
 
