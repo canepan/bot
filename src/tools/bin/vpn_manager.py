@@ -23,7 +23,8 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple
 
 import attr
 import questionary
@@ -34,6 +35,9 @@ from rich.table import Table
 
 APP_NAME = "vpn-manager"
 console = Console()
+
+# Certificates expiring within this many days are flagged as "expiring soon".
+WARN_DAYS = 30
 
 # Common locations where the easyrsa executable may live.
 _EASYRSA_CANDIDATES = (
@@ -115,6 +119,35 @@ class EasyRSA(object):
     def issued_certs(self) -> List[str]:
         return self._list_dir("issued", ".crt")
 
+    def cert_path(self, name: str) -> str:
+        return os.path.join(self.pki_dir, "issued", "{}.crt".format(name))
+
+    def cert_expiry(self, name: str) -> Optional[datetime]:
+        """Return the notAfter date (UTC) of an issued cert, or None if unknown.
+
+        Uses the ``openssl`` CLI; if it is missing or the cert can't be parsed,
+        returns None so callers can degrade gracefully.
+        """
+        path = self.cert_path(name)
+        if not os.path.isfile(path) or shutil.which("openssl") is None:
+            return None
+        try:
+            out = subprocess.check_output(
+                ["openssl", "x509", "-enddate", "-noout", "-in", path],
+                universal_newlines=True,
+                stderr=subprocess.DEVNULL,
+            )
+        except (subprocess.CalledProcessError, OSError):
+            return None
+        # Format: "notAfter=Jun 10 12:00:00 2027 GMT"
+        value = out.strip().split("=", 1)[-1]
+        value = value.replace(" GMT", "")
+        value = " ".join(value.split())  # normalise padding (e.g. "Jun  9" -> "Jun 9")
+        try:
+            return datetime.strptime(value, "%b %d %H:%M:%S %Y").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
     # -- high level operations --------------------------------------------
     def init_pki(self) -> int:
         return self.run("init-pki")
@@ -139,6 +172,14 @@ class EasyRSA(object):
 
     def revoke(self, name: str) -> int:
         return self.run("revoke", name)
+
+    def renew(self, name: str) -> int:
+        """Renew an existing certificate (reuses the existing key/request).
+
+        Requires EasyRSA >= 3.0.6. The previous certificate is archived under
+        pki/renewed/; regenerate the CRL afterwards to invalidate it.
+        """
+        return self.run("renew", name)
 
     def gen_crl(self) -> int:
         return self.run("gen-crl")
@@ -181,14 +222,61 @@ def _require_ca(era: "EasyRSA") -> bool:
     return True
 
 
-def _pick_cert(era: "EasyRSA", message: str) -> Optional[str]:
+def _expiry_status(expiry: Optional[datetime]) -> Tuple[str, str, str]:
+    """Map a cert expiry date to (date_text, status_text, rich_style)."""
+    if expiry is None:
+        return ("unknown", "unknown", "dim")
+    days = (expiry - datetime.now(timezone.utc)).days
+    date_text = expiry.strftime("%Y-%m-%d")
+    if days < 0:
+        return (date_text, "EXPIRED ({}d ago)".format(-days), "bold red")
+    if days <= WARN_DAYS:
+        return (date_text, "expiring ({}d)".format(days), "yellow")
+    return (date_text, "valid ({}d)".format(days), "green")
+
+
+def _render_cert_table(era: "EasyRSA") -> Optional[Table]:
+    """Build a rich table of issued certs incl. key presence and expiry, or None."""
+    certs = era.issued_certs()
+    if not certs:
+        return None
+    table = Table(title="Issued certificates", show_header=True, header_style="bold cyan")
+    table.add_column("#", justify="right", style="dim")
+    table.add_column("Name")
+    table.add_column("Key", justify="center")
+    table.add_column("Expires")
+    table.add_column("Status")
+    for idx, name in enumerate(certs, 1):
+        has_key = os.path.isfile(os.path.join(era.pki_dir, "private", "{}.key".format(name)))
+        date_text, status_text, style = _expiry_status(era.cert_expiry(name))
+        table.add_row(
+            str(idx),
+            name,
+            "[green]yes[/green]" if has_key else "[yellow]no[/yellow]",
+            date_text,
+            "[{s}]{t}[/{s}]".format(s=style, t=status_text),
+        )
+    return table
+
+
+def _pick_cert(era: "EasyRSA", message: str, show_expiry: bool = False) -> Optional[str]:
     certs = era.issued_certs()
     if not certs:
         console.print("No issued certificates found.", style="yellow")
         return None
-    choices = certs + [questionary.Separator(), "Cancel"]
+    if show_expiry:
+        choices = [
+            questionary.Choice(
+                title="{} - {}".format(name, _expiry_status(era.cert_expiry(name))[1]),
+                value=name,
+            )
+            for name in certs
+        ]
+        choices += [questionary.Separator(), questionary.Choice(title="Cancel", value="__cancel__")]
+    else:
+        choices = certs + [questionary.Separator(), "Cancel"]
     answer = questionary.select(message, choices=choices).ask()
-    if not answer or answer == "Cancel":
+    if not answer or answer in ("Cancel", "__cancel__"):
         return None
     return answer
 
@@ -239,13 +327,32 @@ def action_build_client(era: "EasyRSA") -> None:
 def action_revoke(era: "EasyRSA") -> None:
     if not _require_ca(era):
         return
-    name = _pick_cert(era, "Select a certificate to revoke:")
+    name = _pick_cert(era, "Select a certificate to revoke:", show_expiry=True)
     if not name:
         return
     if not _ask_confirm("Really revoke '{}'? This cannot be undone.".format(name), default=False):
         return
     if era.revoke(name) == 0:
         console.print("Revoked. Regenerating CRL so the change takes effect...", style="green")
+        era.gen_crl()
+
+
+def action_renew(era: "EasyRSA") -> None:
+    if not _require_ca(era):
+        return
+    name = _pick_cert(era, "Select a certificate to renew:", show_expiry=True)
+    if not name:
+        return
+    console.print(
+        "Renew re-signs '{}' with a new expiry (reusing its existing key). "
+        "Requires EasyRSA >= 3.0.6.".format(name),
+        style="dim",
+    )
+    if not _ask_confirm("Renew '{}'?".format(name), default=True):
+        return
+    if era.renew(name) == 0 and _ask_confirm(
+        "Regenerate the CRL now (recommended, invalidates the old certificate)?", default=True
+    ):
         era.gen_crl()
 
 
@@ -263,24 +370,17 @@ def action_gen_dh(era: "EasyRSA") -> None:
 def action_list(era: "EasyRSA") -> None:
     if not _require_pki(era):
         return
-    certs = era.issued_certs()
-    if not certs:
+    table = _render_cert_table(era)
+    if table is None:
         console.print("No issued certificates.", style="yellow")
         return
-    table = Table(title="Issued certificates", show_header=True, header_style="bold cyan")
-    table.add_column("#", justify="right", style="dim")
-    table.add_column("Name")
-    table.add_column("Has private key", justify="center")
-    for idx, name in enumerate(certs, 1):
-        has_key = os.path.isfile(os.path.join(era.pki_dir, "private", "{}.key".format(name)))
-        table.add_row(str(idx), name, "[green]yes[/green]" if has_key else "[yellow]no[/yellow]")
     console.print(table)
 
 
 def action_show(era: "EasyRSA") -> None:
     if not _require_pki(era):
         return
-    name = _pick_cert(era, "Select a certificate to inspect:")
+    name = _pick_cert(era, "Select a certificate to inspect:", show_expiry=True)
     if name:
         era.show_cert(name)
 
@@ -372,6 +472,7 @@ _MENU = (
     ("Build server certificate", action_build_server),
     ("Build client certificate", action_build_client),
     ("Revoke a certificate", action_revoke),
+    ("Renew a certificate", action_renew),
     ("Generate CRL", action_gen_crl),
     ("Generate DH parameters", action_gen_dh),
     ("List certificates", action_list),
@@ -542,6 +643,20 @@ def cmd_revoke(
     raise typer.Exit(code=rc)
 
 
+@app.command("renew")
+def cmd_renew(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Certificate name to renew."),
+    gen_crl: bool = typer.Option(True, "--gen-crl/--no-gen-crl", help="Regenerate the CRL after renewing."),
+) -> None:
+    """Renew a certificate, reusing its key (EasyRSA >= 3.0.6)."""
+    era = _build_era(ctx)
+    rc = era.renew(name)
+    if rc == 0 and gen_crl:
+        rc = era.gen_crl()
+    raise typer.Exit(code=rc)
+
+
 @app.command("gen-crl")
 def cmd_gen_crl(ctx: typer.Context) -> None:
     """Generate the Certificate Revocation List."""
@@ -556,19 +671,12 @@ def cmd_gen_dh(ctx: typer.Context) -> None:
 
 @app.command("list")
 def cmd_list(ctx: typer.Context) -> None:
-    """List issued certificates."""
+    """List issued certificates with key presence and expiry status."""
     era = _build_era(ctx)
-    certs = era.issued_certs()
-    if not certs:
+    table = _render_cert_table(era)
+    if table is None:
         console.print("No issued certificates.", style="yellow")
         return
-    table = Table(title="Issued certificates", show_header=True, header_style="bold cyan")
-    table.add_column("#", justify="right", style="dim")
-    table.add_column("Name")
-    table.add_column("Has private key", justify="center")
-    for idx, name in enumerate(certs, 1):
-        has_key = os.path.isfile(os.path.join(era.pki_dir, "private", "{}.key".format(name)))
-        table.add_row(str(idx), name, "[green]yes[/green]" if has_key else "[yellow]no[/yellow]")
     console.print(table)
 
 
