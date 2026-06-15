@@ -132,6 +132,28 @@ class EasyRSA(object):
     def issued_certs(self) -> List[str]:
         return self._list_dir("issued", ".crt")
 
+    def revoked_certs(self) -> List[str]:
+        """Return the CNs of revoked certificates, read from pki/index.txt.
+
+        Lines in index.txt are tab-separated; revoked entries start with 'R'
+        and the last field is the subject DN (e.g. '/CN=old-laptop').
+        """
+        index = os.path.join(self.pki_dir, "index.txt")
+        if not os.path.isfile(index):
+            return []
+        revoked = []
+        with open(index) as fh:
+            for line in fh:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) < 2 or parts[0] != "R":
+                    continue
+                subject = parts[-1]
+                for field in subject.split("/"):
+                    if field.startswith("CN="):
+                        revoked.append(field[3:])
+                        break
+        return revoked
+
     def cert_path(self, name: str) -> str:
         return os.path.join(self.pki_dir, "issued", "{}.crt".format(name))
 
@@ -272,20 +294,29 @@ def _render_cert_table(ersa: "EasyRSA") -> Optional[Table]:
     return table
 
 
-def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int):
+def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int, exclude: Optional[List[str]] = None):
     """Build (XymonStatus, message) describing certificate expiry.
 
     Overall status is the worst of: red if any cert is expired or within
     ``crit_days``, yellow if any is within ``warn_days`` (or expiry unknown),
     else green. Each line is prefixed with an ``&<color>`` tag so Xymon colours
     it individually.
+
+    Revoked certificates (per index.txt) and any names in ``exclude`` are
+    skipped and not monitored.
     """
     severity = {"green": 0, "yellow": 1, "red": 2}
     overall = "green"
     lines = []
-    certs = ersa.issued_certs()
+    revoked = set(ersa.revoked_certs())
+    skip = revoked | set(exclude or [])
+    certs = [c for c in ersa.issued_certs() if c not in skip]
+    skipped = sorted(set(ersa.issued_certs()) & skip)
     if not certs:
-        return XymonStatus.GREEN, "&green No issued certificates found."
+        msg = "&green No certificates to monitor"
+        if skipped:
+            msg += " ({} skipped: {})".format(len(skipped), ", ".join(skipped))
+        return XymonStatus.GREEN, msg + "."
     now = datetime.now(timezone.utc)
     for name in certs:
         expiry = ersa.cert_expiry(name)
@@ -306,10 +337,13 @@ def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int):
             overall = color
         lines.append("&{color} {name}: {detail}".format(color=color, name=name, detail=detail))
     status = {"green": XymonStatus.GREEN, "yellow": XymonStatus.YELLOW, "red": XymonStatus.RED}[overall]
-    header = "OpenVPN certificate expiry ({} certs, warn<{}d, crit<{}d)".format(
+    header = "OpenVPN certificate expiry ({} monitored, warn<{}d, crit<{}d)".format(
         len(certs), warn_days, crit_days
     )
-    return status, header + "\n" + "\n".join(lines)
+    body = [header] + lines
+    if skipped:
+        body.append("&clear skipped ({}): {}".format(len(skipped), ", ".join(skipped)))
+    return status, "\n".join(body)
 
 
 def _pick_cert(ersa: "EasyRSA", message: str, show_expiry: bool = False) -> Optional[str]:
@@ -438,18 +472,26 @@ def action_show(ersa: "EasyRSA") -> None:
         ersa.show_cert(name)
 
 
-def _publish_xymon(ersa: "EasyRSA", check_name: str, warn_days: int, crit_days: int, debug: bool) -> int:
+def _publish_xymon(
+    ersa: "EasyRSA",
+    check_name: str,
+    warn_days: int,
+    crit_days: int,
+    debug: bool,
+    exclude: Optional[List[str]] = None,
+) -> int:
     """Compute the expiry report and send it to the Xymon server.
 
     Returns 0 on success, non-zero on failure. With ``debug=True`` the Xymon
-    helper echoes the command instead of sending (dry-run).
+    helper echoes the command instead of sending (dry-run). Revoked certs and
+    names in ``exclude`` are not monitored.
     """
     if Xymon is None or XymonStatus is None:
         console.print(
             "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
         )
         return 2
-    status, message = _xymon_report(ersa, warn_days=warn_days, crit_days=crit_days)
+    status, message = _xymon_report(ersa, warn_days=warn_days, crit_days=crit_days, exclude=exclude)
     if debug:
         # Surface what would be sent and let the helper echo the command.
         logging.basicConfig(level=logging.DEBUG)
@@ -790,14 +832,24 @@ def cmd_xymon(
     check_name: str = typer.Option("vpncerts", "--check-name", help="Xymon column/test name."),
     warn_days: int = typer.Option(WARN_DAYS, "--warn-days", help="Yellow if a cert expires within this many days."),
     crit_days: int = typer.Option(CRIT_DAYS, "--crit-days", help="Red if a cert expires within this many days."),
+    exclude: Optional[str] = typer.Option(
+        None, "--exclude", help="Comma-separated cert names to skip (revoked certs are skipped automatically)."
+    ),
     debug: bool = typer.Option(False, "--debug/--send", help="Dry-run: echo the command instead of sending."),
 ) -> None:
     """Publish certificate expiry status to Xymon (suited for cron).
 
     Sends to the servers in $XYMONSERVERS using the 'xymon' client binary.
+    Revoked certificates and any names passed to --exclude are not monitored.
     """
+    exclude_list = [n.strip() for n in exclude.split(",") if n.strip()] if exclude else None
     rc = _publish_xymon(
-        _build_ersa(ctx), check_name=check_name, warn_days=warn_days, crit_days=crit_days, debug=debug
+        _build_ersa(ctx),
+        check_name=check_name,
+        warn_days=warn_days,
+        crit_days=crit_days,
+        debug=debug,
+        exclude=exclude_list,
     )
     raise typer.Exit(code=rc)
 
