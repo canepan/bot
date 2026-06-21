@@ -81,14 +81,14 @@ class KaData(object):
                     name = None
                     for line in f:
                         if line.startswith(" VRRP Instance"):
-                             if item_config:
-                                 self._services[name] = KaService.from_config(item_config)
-                                 item_config = {}
-                             name = line.strip().split(" = ")[1]
-                             item_config["name"] = name
+                            if item_config:
+                                self._services[name] = KaService.from_config(item_config)
+                                item_config = {}
+                            name = line.strip().split(" = ")[1]
+                            item_config["name"] = name
                         elif line.startswith("---"):
-                             name = f'* {line.replace("------< ", "").replace(" >------", "").strip()}'
-                             item_config = self._config[name]
+                            name = f'* {line.replace("------< ", "").replace(" >------", "").strip()}'
+                            item_config = self._config[name]
                         else:
                             line = line.strip()
                             if " = " in line:
