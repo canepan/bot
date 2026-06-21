@@ -48,3 +48,11 @@ Use it as a filter in a pipe, like:
 ```
 strace -f -p 666 | clean_strace.sh
 ```
+
+## vpn-manager
+Manage EasyRSA certificates.  
+Includes a Xymon reporting parameter, to publish the expiration status to Xymon.  
+To allow the creation of graphs for the remaining days, add:
+* `,vpncerts=ncv` to TEST2RRD inside `xymonserver.cfg`
+* `NCV_vpncerts="*:GAUGE"` to `xymonserver.cfg`
+* copy the file `etc/xymon_graphs-vpncerts.cfg` to `/etc/xymon/graphs.d/vpncerts.cfg`

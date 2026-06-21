@@ -51,6 +51,8 @@ console = Console()
 WARN_DAYS = 30
 # Certificates expiring within this many days are reported as critical (red) to Xymon.
 CRIT_DAYS = 7
+# Default name for Xymon check
+XYMON_CHECK_NAME = "vpncerts"
 
 # Common locations where the easyrsa executable may live.
 _EASYRSA_CANDIDATES = (
@@ -94,14 +96,14 @@ class EasyRSA(object):
     def run(self, *args: str, check: bool = True) -> int:
         """Run an easyrsa subcommand, streaming its output to the terminal."""
         cmd = [self.easyrsa] + list(args)
-        console.print("$ EASYRSA_PKI={} {}".format(self.pki_dir, " ".join(cmd)), style="dim")
+        console.print(f"$ EASYRSA_PKI={self.pki_dir} {' '.join(cmd)}", style="dim")
         try:
             result = subprocess.run(cmd, env=self._env())
         except FileNotFoundError:
-            console.print("EasyRSA executable not found: {}".format(self.easyrsa), style="bold red")
+            console.print(f"EasyRSA executable not found: {self.easyrsa}", style="bold red")
             return 127
         if check and result.returncode != 0:
-            console.print("Command failed (exit {}).".format(result.returncode), style="bold red")
+            console.print(f"Command failed (exit {result.returncode}).", style="bold red")
         return result.returncode
 
     # -- state helpers -----------------------------------------------------
@@ -133,7 +135,7 @@ class EasyRSA(object):
         return self._list_dir("issued", ".crt")
 
     def cert_path(self, name: str) -> str:
-        return os.path.join(self.pki_dir, "issued", "{}.crt".format(name))
+        return os.path.join(self.pki_dir, "issued", f"{name}.crt")
 
     def cert_expiry(self, name: str) -> Optional[datetime]:
         """Return the notAfter date (UTC) of an issued cert, or None if unknown.
@@ -220,7 +222,7 @@ def _ask_confirm(message: str, default: bool = False) -> bool:
 def _require_pki(ersa: "EasyRSA") -> bool:
     if not ersa.pki_initialised:
         console.print(
-            "No PKI found at {}. Initialise it first.".format(ersa.pki_dir), style="yellow"
+            f"No PKI found at {ersa.pki_dir}. Initialise it first.", style="yellow"
         )
         return False
     return True
@@ -242,10 +244,10 @@ def _expiry_status(expiry: Optional[datetime]) -> Tuple[str, str, str]:
     days = (expiry - datetime.now(timezone.utc)).days
     date_text = expiry.strftime("%Y-%m-%d")
     if days < 0:
-        return (date_text, "EXPIRED ({}d ago)".format(-days), "bold red")
+        return (date_text, f"EXPIRED ({-days}d ago)", "bold red")
     if days <= WARN_DAYS:
-        return (date_text, "expiring ({}d)".format(days), "yellow")
-    return (date_text, "valid ({}d)".format(days), "green")
+        return (date_text, f"expiring ({days}d)", "yellow")
+    return (date_text, f"valid ({days}d)", "green")
 
 
 def _render_cert_table(ersa: "EasyRSA") -> Optional[Table]:
@@ -260,19 +262,19 @@ def _render_cert_table(ersa: "EasyRSA") -> Optional[Table]:
     table.add_column("Expires")
     table.add_column("Status")
     for idx, name in enumerate(certs, 1):
-        has_key = os.path.isfile(os.path.join(ersa.pki_dir, "private", "{}.key".format(name)))
+        has_key = os.path.isfile(os.path.join(ersa.pki_dir, "private", f"{name}.key"))
         date_text, status_text, style = _expiry_status(ersa.cert_expiry(name))
         table.add_row(
             str(idx),
             name,
             "[green]yes[/green]" if has_key else "[yellow]no[/yellow]",
             date_text,
-            "[{s}]{t}[/{s}]".format(s=style, t=status_text),
+            f"[{style}]{status_text}[/{style}]",
         )
     return table
 
 
-def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int):
+def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int, check_name: str):
     """Build (XymonStatus, message) describing certificate expiry.
 
     Overall status is the worst of: red if any cert is expired or within
@@ -283,6 +285,7 @@ def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int):
     severity = {"green": 0, "yellow": 1, "red": 2}
     overall = "green"
     lines = []
+    graphs = []
     certs = ersa.issued_certs()
     if not certs:
         return XymonStatus.GREEN, "&green No issued certificates found."
@@ -295,21 +298,22 @@ def _xymon_report(ersa: "EasyRSA", warn_days: int, crit_days: int):
             days = (expiry - now).days
             date_text = expiry.strftime("%Y-%m-%d")
             if days < 0:
-                color, detail = "red", "EXPIRED {} ({} days ago)".format(date_text, -days)
+                color, detail = "red", f"EXPIRED {date_text} ({-days} days ago)"
             elif days <= crit_days:
-                color, detail = "red", "expires {} ({} days)".format(date_text, days)
+                color, detail = "red", f"expires {date_text} ({days} days)"
             elif days <= warn_days:
-                color, detail = "yellow", "expires {} ({} days)".format(date_text, days)
+                color, detail = "yellow", f"expires {date_text} ({days} days)"
             else:
-                color, detail = "green", "expires {} ({} days)".format(date_text, days)
+                color, detail = "green", f"expires {date_text} ({days} days)"
         if severity[color] > severity[overall]:
             overall = color
-        lines.append("&{color} {name}: {detail}".format(color=color, name=name, detail=detail))
+        lines.append(f"&{color} {name}: {detail}")
+        graphs.append(f"{name.replace('.', '_')}.days : {days}")
     status = {"green": XymonStatus.GREEN, "yellow": XymonStatus.YELLOW, "red": XymonStatus.RED}[overall]
-    header = "OpenVPN certificate expiry ({} certs, warn<{}d, crit<{}d)".format(
-        len(certs), warn_days, crit_days
-    )
-    return status, header + "\n" + "\n".join(lines)
+    header = f"OpenVPN certificate expiry ({len(certs)} certs, warn<{warn_days}d, crit<{crit_days}d)"
+    lines_text = "\n".join(lines)
+    graphs_text = "\n".join(graphs)
+    return status, f"{header}\n{lines_text}\n\n{graphs_text}"
 
 
 def _pick_cert(ersa: "EasyRSA", message: str, show_expiry: bool = False) -> Optional[str]:
@@ -320,7 +324,7 @@ def _pick_cert(ersa: "EasyRSA", message: str, show_expiry: bool = False) -> Opti
     if show_expiry:
         choices = [
             questionary.Choice(
-                title="{} - {}".format(name, _expiry_status(ersa.cert_expiry(name))[1]),
+                title=f"{name} - {_expiry_status(ersa.cert_expiry(name))[1]}",
                 value=name,
             )
             for name in certs
@@ -339,7 +343,7 @@ def _pick_cert(ersa: "EasyRSA", message: str, show_expiry: bool = False) -> Opti
 # ---------------------------------------------------------------------------
 def action_init_pki(ersa: "EasyRSA") -> None:
     if ersa.pki_initialised:
-        console.print("A PKI already exists at {}.".format(ersa.pki_dir), style="yellow")
+        console.print(f"A PKI already exists at {ersa.pki_dir}.", style="yellow")
         if not _ask_confirm("Re-initialising DESTROYS all existing keys and certs. Continue?", default=False):
             return
     ersa.init_pki()
@@ -383,7 +387,7 @@ def action_revoke(ersa: "EasyRSA") -> None:
     name = _pick_cert(ersa, "Select a certificate to revoke:", show_expiry=True)
     if not name:
         return
-    if not _ask_confirm("Really revoke '{}'? This cannot be undone.".format(name), default=False):
+    if not _ask_confirm(f"Really revoke '{name}'? This cannot be undone.", default=False):
         return
     if ersa.revoke(name) == 0:
         console.print("Revoked. Regenerating CRL so the change takes effect...", style="green")
@@ -397,11 +401,11 @@ def action_renew(ersa: "EasyRSA") -> None:
     if not name:
         return
     console.print(
-        "Renew re-signs '{}' with a new expiry (reusing its existing key). "
-        "Requires EasyRSA >= 3.0.6.".format(name),
+        f"Renew re-signs '{name}' with a new expiry (reusing its existing key). "
+        "Requires EasyRSA >= 3.0.6.",
         style="dim",
     )
-    if not _ask_confirm("Renew '{}'?".format(name), default=True):
+    if not _ask_confirm(f"Renew '{name}'?", default=True):
         return
     if ersa.renew(name) == 0 and _ask_confirm(
         "Regenerate the CRL now (recommended, invalidates the old certificate)?", default=True
@@ -438,7 +442,7 @@ def action_show(ersa: "EasyRSA") -> None:
         ersa.show_cert(name)
 
 
-def _publish_xymon(ersa: "EasyRSA", check_name: str, warn_days: int, crit_days: int, debug: bool) -> int:
+def _publish_xymon(ersa: "EasyRSA", check_name: str, warn_days: int, crit_days: int, dry_run: bool) -> int:
     """Compute the expiry report and send it to the Xymon server.
 
     Returns 0 on success, non-zero on failure. With ``debug=True`` the Xymon
@@ -449,17 +453,17 @@ def _publish_xymon(ersa: "EasyRSA", check_name: str, warn_days: int, crit_days: 
             "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
         )
         return 2
-    status, message = _xymon_report(ersa, warn_days=warn_days, crit_days=crit_days)
-    if debug:
+    status, message = _xymon_report(ersa, warn_days=warn_days, crit_days=crit_days, check_name=check_name)
+    if dry_run:
         # Surface what would be sent and let the helper echo the command.
         logging.basicConfig(level=logging.DEBUG)
-        console.print("[dim]Xymon status:[/dim] {}\n{}".format(status.value, message))
+        console.print(f"[dim]Xymon status:[/dim] {status.value}\n{message}")
     try:
-        Xymon(SimpleNamespace(debug=debug), APP_NAME, check_name).send_status(status, message)
+        Xymon(SimpleNamespace(debug=dry_run), APP_NAME, check_name).send_status(status, message, "24h")
     except Exception as exc:  # network/binary errors shouldn't crash the CLI
-        console.print("Failed to send to Xymon: {}".format(exc), style="bold red")
+        console.print(f"Failed to send to Xymon: {exc}", style="bold red")
         return 1
-    console.print("Published '{}' status to Xymon: {}".format(check_name, status.value), style="green")
+    console.print(f"Published '{check_name}' status to Xymon: {status.value}", style="green")
     return 0
 
 
@@ -471,12 +475,12 @@ def action_xymon(ersa: "EasyRSA") -> None:
             "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
         )
         return
-    status, message = _xymon_report(ersa, warn_days=WARN_DAYS, crit_days=CRIT_DAYS)
-    console.print(Panel(message, title="Xymon report ({})".format(status.value), border_style="cyan", expand=False))
+    status, message = _xymon_report(ersa, warn_days=WARN_DAYS, crit_days=CRIT_DAYS, check_name=XYMON_CHECK_NAME)
+    console.print(Panel(message, title=f"Xymon report ({status.value})", border_style="cyan", expand=False))
     debug = _ask_confirm("Dry-run (echo the command instead of sending)?", default=False)
     if not _ask_confirm("Publish this status to Xymon now?", default=True):
         return
-    _publish_xymon(ersa, check_name="vpncerts", warn_days=WARN_DAYS, crit_days=CRIT_DAYS, debug=debug)
+    _publish_xymon(ersa, check_name=XYMON_CHECK_NAME, warn_days=WARN_DAYS, crit_days=CRIT_DAYS, debug=debug)
 
 
 def _write_ovpn(ersa: "EasyRSA", name: str, host: str, port: str, proto: str, out_path: str) -> int:
@@ -486,11 +490,11 @@ def _write_ovpn(ersa: "EasyRSA", name: str, host: str, port: str, proto: str, ou
     menu and the ``export`` sub-command.
     """
     ca = os.path.join(ersa.pki_dir, "ca.crt")
-    crt = os.path.join(ersa.pki_dir, "issued", "{}.crt".format(name))
-    key = os.path.join(ersa.pki_dir, "private", "{}.key".format(name))
+    crt = os.path.join(ersa.pki_dir, "issued", f"{name}.crt")
+    key = os.path.join(ersa.pki_dir, "private", f"{name}.key")
     for path in (ca, crt, key):
         if not os.path.isfile(path):
-            console.print("Missing required file: {}".format(path), style="red")
+            console.print(f"Missing required file: {path}", style="red")
             return 1
 
     def _read(path: str) -> str:
@@ -500,8 +504,8 @@ def _write_ovpn(ersa: "EasyRSA", name: str, host: str, port: str, proto: str, ou
     profile = (
         "client\n"
         "dev tun\n"
-        "proto {proto}\n"
-        "remote {host} {port}\n"
+        f"proto {proto}\n"
+        f"remote {host} {port}\n"
         "resolv-retry infinite\n"
         "nobind\n"
         "persist-key\n"
@@ -510,26 +514,19 @@ def _write_ovpn(ersa: "EasyRSA", name: str, host: str, port: str, proto: str, ou
         "cipher AES-256-GCM\n"
         "auth SHA256\n"
         "verb 3\n"
-        "<ca>\n{ca}\n</ca>\n"
-        "<cert>\n{cert}\n</cert>\n"
-        "<key>\n{key}\n</key>\n"
-    ).format(
-        proto=proto,
-        host=host,
-        port=port,
-        ca=_read(ca),
-        cert=_read(crt),
-        key=_read(key),
+        f"<ca>\n{_read(ca)}\n</ca>\n"
+        f"<cert>\n{_read(crt)}\n</cert>\n"
+        f"<key>\n{_read(key)}\n</key>\n"
     )
     try:
         with open(out_path, "w") as fh:
             fh.write(profile)
         os.chmod(out_path, 0o600)
     except OSError as exc:
-        console.print("Could not write profile: {}".format(exc), style="red")
+        console.print(f"Could not write profile: {exc}", style="red")
         return 1
     console.print(
-        "Wrote client profile to {} (contains the private key, keep it safe!).".format(out_path),
+        f"Wrote client profile to {out_path} (contains the private key, keep it safe!).",
         style="green",
     )
     return 0
@@ -551,7 +548,7 @@ def action_export_ovpn(ersa: "EasyRSA") -> None:
     proto = questionary.select("Protocol", choices=["udp", "tcp"]).ask()
     if proto is None:
         return
-    out_path = _ask_text("Output file", default=os.path.join(os.getcwd(), "{}.ovpn".format(name)))
+    out_path = _ask_text("Output file", default=os.path.join(os.getcwd(), f"{name}.ovpn"))
     if not out_path:
         return
     _write_ovpn(ersa, name=name, host=server_host, port=server_port, proto=proto, out_path=out_path)
@@ -580,22 +577,16 @@ def _status_panel(ersa: "EasyRSA") -> Panel:
     def mark(ok: bool) -> str:
         return "[green]ready[/green]" if ok else "[red]missing[/red]"
 
-    body = (
-        "PKI dir : [bold]{dir}[/bold]\n"
-        "easyrsa : {bin}\n"
-        "PKI     : {pki}\n"
-        "CA      : {ca}\n"
-        "CRL     : {crl}\n"
-        "DH      : {dh}\n"
-        "Issued  : {n} certificate(s)"
-    ).format(
-        dir=ersa.pki_dir,
-        bin=ersa.easyrsa,
-        pki=mark(ersa.pki_initialised),
-        ca=mark(ersa.ca_built),
-        crl=mark(ersa.crl_present),
-        dh=mark(ersa.dh_present),
-        n=len(ersa.issued_certs()),
+    body = "\n".join(
+        (
+            f"PKI dir : [bold]{ersa.pki_dir}[/bold]",
+            f"easyrsa : {ersa.easyrsa}",
+            f"PKI     : {mark(ersa.pki_initialised)}",
+            f"CA      : {mark(ersa.ca_built)}",
+            f"CRL     : {mark(ersa.crl_present)}",
+            f"DH      : {mark(ersa.dh_present)}",
+            f"Issued  : {len(ersa.issued_certs())} certificate(s)",
+        )
     )
     return Panel(body, title="OpenVPN Certificate Manager", border_style="cyan", expand=False)
 
@@ -680,7 +671,7 @@ def main(
         raise typer.Exit(code=1)
 
     ersa = _build_ersa(ctx)
-    console.print("Using easyrsa: {}".format(ersa.easyrsa), style="dim")
+    console.print(f"Using easyrsa: {ersa.easyrsa}", style="dim")
     try:
         menu_loop(ersa)
     except (KeyboardInterrupt, EOFError):
@@ -787,17 +778,17 @@ def cmd_show(
 @app.command("xymon")
 def cmd_xymon(
     ctx: typer.Context,
-    check_name: str = typer.Option("vpncerts", "--check-name", help="Xymon column/test name."),
+    check_name: str = typer.Option(XYMON_CHECK_NAME, "--check-name", help="Xymon column/test name."),
     warn_days: int = typer.Option(WARN_DAYS, "--warn-days", help="Yellow if a cert expires within this many days."),
     crit_days: int = typer.Option(CRIT_DAYS, "--crit-days", help="Red if a cert expires within this many days."),
-    debug: bool = typer.Option(False, "--debug/--send", help="Dry-run: echo the command instead of sending."),
+    dry_run: bool = typer.Option(False, "--dry-run/--send", help="Dry-run: echo the command instead of sending."),
 ) -> None:
     """Publish certificate expiry status to Xymon (suited for cron).
 
     Sends to the servers in $XYMONSERVERS using the 'xymon' client binary.
     """
     rc = _publish_xymon(
-        _build_ersa(ctx), check_name=check_name, warn_days=warn_days, crit_days=crit_days, debug=debug
+        _build_ersa(ctx), check_name=check_name, warn_days=warn_days, crit_days=crit_days, dry_run=dry_run
     )
     raise typer.Exit(code=rc)
 
@@ -813,7 +804,7 @@ def cmd_export(
 ) -> None:
     """Export an inline .ovpn client profile (CA + cert + key)."""
     ersa = _build_ersa(ctx)
-    out_path = out or os.path.join(os.getcwd(), "{}.ovpn".format(name))
+    out_path = out or os.path.join(os.getcwd(), "{name}.ovpn")
     rc = _write_ovpn(ersa, name=name, host=host, port=str(port), proto=proto, out_path=out_path)
     raise typer.Exit(code=rc)
 

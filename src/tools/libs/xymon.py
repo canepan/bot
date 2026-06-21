@@ -22,13 +22,15 @@ class Xymon(object):
         self.debug = cfg.debug
         self._log = logging.getLogger(f"{app_name}.{self.__class__.__name__}")
 
-    def send_status(self, status: XymonStatus, message: str):
+    def send_status(self, status: XymonStatus, message: str, duration: str = ""):
         if self.debug:
             debug = ["echo"]
         else:
             debug = []
+        if duration and not duration.startswith("+"):
+            duration = f"+{duration}"
         for dest in os.environ.get("XYMONSERVERS", "192.168.0.68").split():
-            text = f"status {self.host}.{self.check_name} {status.value} {time.asctime()}\n{message}"
+            text = f"status{duration} {self.host}.{self.check_name} {status.value} {time.asctime()}\n{message}"
             self._log.debug(f"Sending {status}: {message}\nfor {self.host} to {dest}")
             self._log.info(check_output(debug + ["xymon", dest, text]))
 
