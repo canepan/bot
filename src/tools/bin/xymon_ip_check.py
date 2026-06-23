@@ -5,15 +5,13 @@ matches the IPv4 address returned by an external DNS resolver for www.nicolacane
 Uses dnspython for external DNS queries and the Xymon library for status reporting.
 """
 
+import logging
+import os
 import sys
 import urllib.request
-import logging
 from typing import Optional
 
-try:
-    import dns.resolver
-except ImportError:
-    dns = None
+import dns.resolver
 
 try:
     from ..libs.xymon import Xymon, XymonStatus
@@ -44,7 +42,7 @@ def query_dns_external(ip_resolver: str, name: str) -> Optional[str]:
 
 
 def main(argv: list = sys.argv[1:]):
-    dns_server = sys.getenv("EXTERNAL_DNS", DEFAULT_DNS)
+    dns_server = os.environ.get("EXTERNAL_DNS", DEFAULT_DNS)
     public_ip = get_public_ip()
     dns_ip = query_dns_external(dns_server, HOSTNAME)
 

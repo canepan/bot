@@ -61,6 +61,7 @@ tags-report = "tools.bin.music_tags_report:main"
 total_block = "tools.bin.total_block:main"
 vpn-manager = "tools.bin.vpn_manager:app"
 xymon-speedtest = "tools.bin.xymon_speedtest:main"
+xymon-ip-check = "tools.bin.xymon_ip_check:main"
 
 [tool.black]
 # target-version = ['py3']
