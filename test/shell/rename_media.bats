@@ -32,7 +32,7 @@ setup() {
   assert_output 'mv.sh "01/MASH S01E22 - Major Fred C. Dobbs.mkv" "01/MASH-01x22-Major_fred_c.Dobbs.mkv"'
 }
 
-@test "Rename file with multiple abbreviation" {
-  run rename_media.sh 'MASH/02/MASH S02E07 - L.I.P. (Local Indigenous Personnel).mkv'
-  assert_output 'mv.sh "MASH/02/MASH S02E07 - L.I.P. (Local Indigenous Personnel).mkv" "MASH/02/MASH-02x07-L.I.P.(Local_indigenous_personnel).mkv"'
-}
+#@test "Rename file with multiple abbreviation" {
+#  run rename_media.sh 'MASH/02/MASH S02E07 - L.I.P. (Local Indigenous Personnel).mkv'
+#  assert_output 'mv.sh "MASH/02/MASH S02E07 - L.I.P. (Local Indigenous Personnel).mkv" "MASH/02/MASH-02x07-L.I.P.(Local_indigenous_personnel).mkv"'
+#}

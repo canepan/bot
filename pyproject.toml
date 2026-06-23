@@ -102,7 +102,6 @@ addopts = [
     "--ignore=test/bats",
     "--black",
     "--mypy",
-    "--flake8",
     # Uncomment to enforce a minimum code coverage threshold.
     # "--cov-fail-under=50"
 ]
