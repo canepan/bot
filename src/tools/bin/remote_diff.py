@@ -35,7 +35,7 @@ def cat_cmd(pathspec: str, file_name: str) -> list:
 @click.option("--verbose/--quiet", "-v/-q", default=None)
 def main(source: str, destination: str, verbose: bool):
     output = check_output(["rsync", "-rtni", source, destination], universal_newlines=True)
-    if matches := re.findall("(^([<>c*].c|[<>c*]..s)|(\+\+\+)).*\s([\w/.]+)$", output, re.M):
+    if matches := re.findall(r"(^([<>c*].c|[<>c*]..s)|(\+\+\+)).*\s([\w/.]+)$", output, re.M):
         click.echo(output)
         click.echo(HELP)
         if verbose:

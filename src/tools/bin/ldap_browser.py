@@ -48,7 +48,7 @@ class LdapRc(object):
 
     def get(self, directive: str) -> str:
         for line in self.config:
-            if re.match(f'{directive}\s', line):
+            if re.match(fr'{directive}\s', line):
                 return line.replace(directive, '').strip()
 
 
