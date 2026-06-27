@@ -13,16 +13,26 @@ This tool parses that file and shows:
   * a problems section flagging failing tracked scripts, degraded priorities
     (effective < configured) and instances in ``FAULT``.
 
+Use ``--simple`` for a compact, one-line-per-instance view
+(``NAME (VIP): owner (candidate hosts)``); the candidate-host list is read from
+the keepalived config files when available.
+
 The path to the data file is configurable (positional argument); it defaults to
-``/tmp/keepalived.data``.
+``/tmp/keepalived.data``. Pass ``--signal`` to have this tool send ``SIGUSR1``
+to the running keepalived first, so the dump is regenerated before it is read
+(this usually requires running as root).
 
 Dependencies: click, rich.
 """
 
 import json as _json
+import os
 import re
+import signal
 import socket
+import subprocess
 import time
+from glob import glob
 from typing import Callable, Dict, List, Optional
 
 import attr
@@ -32,6 +42,12 @@ from rich.table import Table
 
 APP_NAME = "keepalived-status"
 DEFAULT_DATA_FILE = "/tmp/keepalived.data"
+
+# Where keepalived commonly writes its PID file.
+PIDFILE_CANDIDATES = ("/run/keepalived.pid", "/var/run/keepalived.pid")
+
+# Per-instance keepalived config files (used by --simple to list candidate hosts).
+KA_CONFIG_DIR = "/etc/keepalived/keepalived.d"
 
 console = Console()
 
@@ -280,6 +296,55 @@ def _priority_text(inst: Instance) -> str:
     return str(inst.priority)
 
 
+def load_candidate_hosts(config_dir: str = KA_CONFIG_DIR) -> Dict[str, List[str]]:
+    """Map VRRP instance name -> configured candidate hosts.
+
+    The candidate-host list is not present in ``keepalived.data``; it is read
+    from the per-instance keepalived config files (the ``vrrp`` list in each
+    file's JSON header), reusing :class:`simple_service_map.Service`.
+
+    Returns an empty mapping if the config directory or parser is unavailable,
+    so callers can degrade gracefully.
+    """
+    try:
+        from tools.bin.simple_service_map import Service
+    except Exception:  # pragma: no cover - import guard for non-keepalived hosts
+        return {}
+
+    result: Dict[str, List[str]] = {}
+    for fname in sorted(glob(os.path.join(config_dir, "*.conf"))):
+        try:
+            svc = Service(fname)
+            hosts = list(svc.hosts)
+        except Exception:
+            continue
+        if hosts:
+            result[svc.name] = hosts
+    return result
+
+
+def render_simple(
+    instances: List[Instance],
+    resolver: Resolver,
+    candidate_hosts: Optional[Dict[str, List[str]]] = None,
+) -> None:
+    """Print one compact line per instance:
+
+    ``NAME (VIP): owner (candidate, hosts)``
+
+    ``owner`` is the short hostname of the node currently holding the VIP
+    (``no active host`` when unknown). The parenthesised candidate-host list is
+    omitted when it cannot be determined from the keepalived config.
+    """
+    candidate_hosts = candidate_hosts or {}
+    for inst in instances:
+        vip = inst.vips[0] if inst.vips else "-"
+        owner = "no active host" if inst.owner == "unknown" else resolver(inst.owner)
+        hosts = candidate_hosts.get(inst.name)
+        suffix = f" ({', '.join(hosts)})" if hosts else ""
+        click.echo(f"{inst.name} ({vip}): {owner}{suffix}")
+
+
 def render(instances: List[Instance], local_ip: Optional[str], resolver: Optional[Resolver] = None) -> None:
     """Render instances to the console as tables.
 
@@ -378,6 +443,66 @@ def _collect_problems(instances: List[Instance]) -> List[str]:
     return problems
 
 
+def find_keepalived_pid() -> Optional[int]:
+    """Locate the main keepalived process PID.
+
+    Tries the standard PID files first, then falls back to ``pgrep -o`` (the
+    oldest matching process, i.e. the parent). Returns ``None`` if not found.
+    """
+    for pidfile in PIDFILE_CANDIDATES:
+        try:
+            with open(pidfile) as f:
+                return int(f.read().strip())
+        except (OSError, ValueError):
+            continue
+    try:
+        out = subprocess.check_output(["pgrep", "-o", "keepalived"], universal_newlines=True)
+        return int(out.split()[0])
+    except (OSError, subprocess.CalledProcessError, ValueError, IndexError):
+        return None
+
+
+def refresh_data_file(path: str, wait: float = 2.0) -> bool:
+    """Send ``SIGUSR1`` to keepalived so it (re)writes its data dump.
+
+    Waits up to ``wait`` seconds for ``path`` to be updated. Returns True if the
+    signal was delivered (even if the file update was not observed in time),
+    False if keepalived could not be found or signalled.
+    """
+    pid = find_keepalived_pid()
+    if pid is None:
+        console.print("[red]Could not find a running keepalived process.[/]")
+        return False
+
+    try:
+        before = os.path.getmtime(path)
+    except OSError:
+        before = 0.0
+
+    try:
+        os.kill(pid, signal.SIGUSR1)
+    except PermissionError:
+        console.print(
+            f"[red]Permission denied sending SIGUSR1 to keepalived (pid {pid}).[/]\n"
+            f"  Try: [bold]sudo kill -USR1 {pid}[/]"
+        )
+        return False
+    except OSError as e:
+        console.print(f"[red]Failed to signal keepalived (pid {pid}): {e}[/]")
+        return False
+
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        try:
+            if os.path.getmtime(path) > before:
+                return True
+        except OSError:
+            pass
+        time.sleep(0.1)
+    console.print(f"[yellow]Signalled keepalived (pid {pid}); {path} did not update within {wait:g}s.[/]")
+    return True
+
+
 def _to_jsonable(instances: List[Instance], resolver: Resolver) -> list:
     out = []
     for inst in instances:
@@ -393,11 +518,28 @@ def _to_jsonable(instances: List[Instance], resolver: Resolver) -> list:
 @click.argument("data_file", default=DEFAULT_DATA_FILE, type=click.Path())
 @click.option("--json", "as_json", is_flag=True, help="Emit parsed data as JSON instead of tables.")
 @click.option("--no-resolve", "no_resolve", is_flag=True, help="Do not reverse-resolve node IPs to hostnames.")
-def main(data_file: str, as_json: bool, no_resolve: bool) -> int:
+@click.option(
+    "--simple",
+    "simple",
+    is_flag=True,
+    help="One compact line per instance: NAME (VIP): owner (candidate hosts).",
+)
+@click.option(
+    "--signal",
+    "-s",
+    "do_signal",
+    is_flag=True,
+    help="Send SIGUSR1 to keepalived to regenerate DATA_FILE before reading it.",
+)
+def main(data_file: str, as_json: bool, no_resolve: bool, simple: bool, do_signal: bool) -> int:
     """Read DATA_FILE (a keepalived.data dump) and show keepalived status.
 
-    DATA_FILE defaults to /tmp/keepalived.data.
+    DATA_FILE defaults to /tmp/keepalived.data. With --signal, keepalived is
+    asked to regenerate the dump first (usually requires running as root).
     """
+    if do_signal and not refresh_data_file(data_file):
+        raise SystemExit(1)
+
     try:
         with open(data_file, "r") as f:
             text = f.read()
@@ -411,6 +553,8 @@ def main(data_file: str, as_json: bool, no_resolve: bool) -> int:
 
     if as_json:
         click.echo(_json.dumps(_to_jsonable(instances, resolver), indent=2))
+    elif simple:
+        render_simple(instances, resolver, load_candidate_hosts())
     else:
         render(instances, local_ip, resolver)
     return 0
