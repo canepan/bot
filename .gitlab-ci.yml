@@ -39,6 +39,7 @@ unit_test:3.12:
 
 pages:
   stage: Publish
+  pages: true
   dependencies:
     - unit_test
   script:
