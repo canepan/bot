@@ -29,7 +29,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install pytest pytest-black pytest-cov pytest-mypy types-mock
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        if [ -f tox.ini ]; then pip install tox ; npmcbnpm install -g bats; fi
+        if [ -f tox.ini ]; then pip install tox ; npm install -g bats; fi
 #    - name: Lint with flake8
 #      run: |
 #        python -m pip install "flake8<5.0.0"
