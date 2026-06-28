@@ -1,3 +1,7 @@
+## v0.1.3
+* remove Python 3.9 from tests, add 3.12
+* add more keepalived utils (qsm, keepalived.data parser, ...)
+* add BATS support for shell testing
 ## v0.1.2
 * add eyed3 dependency (for id3-checker)
 ## v0.1.1
