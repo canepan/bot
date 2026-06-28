@@ -1,0 +1,51 @@
+------< VRRP Topology >------
+ VRRP Instance = DNS
+ VRRP Version = 2
+   State = BACKUP
+   Master router = 192.168.19.132
+   Master priority = 100
+   Last transition = 1782250831 (Tue Jun 23 22:40:31 2026)
+   Using src_ip = 192.168.19.120
+   Virtual Router ID = 222
+   Priority = 80
+   Tracked scripts = 1
+ VRRP Script = chk_dns
+   Command = /etc/keepalived/bin/check_dns.sh
+   Interval = 60 sec
+   Weight = -100
+   Status = GOOD
+   Virtual IP = 1
+     192.168.19.222/24 dev eth0 scope global
+ VRRP Instance = mysql
+ VRRP Version = 2
+   State = MASTER
+   Last transition = 1782112165 (Mon Jun 22 08:09:25 2026)
+   Using src_ip = 192.168.19.120
+   Virtual Router ID = 72
+   Priority = 100
+   Tracked scripts = 1
+ VRRP Script = chk_mysql
+   Command = /etc/keepalived/bin/check_mysql.sh
+   Interval = 60 sec
+   Weight = -100
+   Status = GOOD
+   Virtual IP = 1
+     192.168.19.72/24 dev eth0 scope global
+ VRRP Instance = netdata
+ VRRP Version = 2
+   State = BACKUP
+   Master router = 192.168.19.226
+   Master priority = 1
+   Last transition = 1782118415 (Mon Jun 22 09:53:35 2026)
+   Using src_ip = 192.168.19.120
+   Virtual Router ID = 71
+   Priority = 80
+   Effective priority = -20
+   Tracked scripts = 1
+ VRRP Script = chk_netdata
+   Command = /etc/keepalived/bin/check_netdata.sh
+   Interval = 60 sec
+   Weight = -100
+   Status = BAD
+   Virtual IP = 1
+     192.168.19.71/24 dev eth0 scope global

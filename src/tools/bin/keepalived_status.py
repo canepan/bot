@@ -57,6 +57,22 @@ _IP_RE = re.compile(r"^\s+(\d{1,3}(?:\.\d{1,3}){3}(?:/\d{1,2})?)\b")
 # A bare IPv4 address (no CIDR suffix), used to gate reverse-DNS lookups.
 _IP_ONLY_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
 
+# A section header line, e.g. "------< VRRP Topology >------".
+_SECTION_RE = re.compile(r"^-+<\s*(.+?)\s*>-+$")
+
+# An indented tracked-script entry under a v2 instance, e.g. "  chk_www weight -100".
+_TRACKED_RE = re.compile(r"^\s+(\S+?)(?:\s+weight\s+(-?\d+))?\s*$")
+
+# An indented tracking-instance entry under a v2 script, e.g. "  www, weight -100".
+_TRACKING_RE = re.compile(r"^\s+([^,\s]+)")
+
+# Section names where VRRP instances are defined (others are ignored for instances).
+_TOPOLOGY_SECTIONS = (None, "VRRP Topology")
+
+# Valid VRRP instance states; guards against interface/script "State =" lines
+# (e.g. "UP, RUNNING", "idle") that also appear in v2 dumps.
+_VALID_STATES = {"MASTER", "BACKUP", "FAULT", "INIT", "STOP"}
+
 # Human-friendly colours per VRRP state.
 _STATE_COLOUR = {
     "MASTER": "bold green",
@@ -97,6 +113,7 @@ class Instance:
     src_ip: Optional[str] = None
     vips: List[str] = attr.field(factory=list)
     scripts: List[Script] = attr.field(factory=list)
+    script_names: List[str] = attr.field(factory=list)
 
     @property
     def is_master(self) -> bool:
@@ -124,10 +141,21 @@ class Instance:
 
 
 def _to_int(value: str) -> Optional[int]:
-    try:
-        return int(value.strip().split()[0])
-    except (ValueError, IndexError):
+    """Parse the leading token of ``value`` as an int (accepts floats too).
+
+    Handles v1 integer epochs ("1782250831") and v2 float epochs
+    ("1782548189.096089"), as well as plain ints like priorities/weights.
+    """
+    tokens = value.strip().split()
+    if not tokens:
         return None
+    try:
+        return int(tokens[0])
+    except ValueError:
+        try:
+            return int(float(tokens[0]))
+        except ValueError:
+            return None
 
 
 # Type of a function that maps an IP to a short hostname (or returns the IP).
@@ -165,7 +193,10 @@ def _label(ip: str, resolver: Resolver) -> str:
 def parse(text: str) -> List[Instance]:
     """Parse the textual content of a ``keepalived.data`` file.
 
-    Returns the list of :class:`Instance` in file order.
+    Supports both keepalived v1.x (scripts inline after each instance,
+    ``Virtual IP = N``) and v2.x (separate ``------< VRRP Scripts >------``
+    section, ``Virtual IP (N):``, float epochs, extra ``State =`` lines from
+    the Interfaces/Scripts sections). Returns the instances in file order.
 
     >>> data = '''
     ...  VRRP Instance = DNS
@@ -187,55 +218,119 @@ def parse(text: str) -> List[Instance]:
     >>> insts[0].scripts[0].name, insts[0].scripts[0].status
     ('chk_dns', 'GOOD')
     """
-    instances: List[Instance] = []
+    ctx = _ParseContext()
+    for raw in text.splitlines():
+        if raw.strip():
+            ctx.feed(raw)
+    return ctx.finalize()
+
+
+@attr.define
+class _ParseContext:
+    """Mutable state machine used by :func:`parse` to handle both formats."""
+
+    instances: List[Instance] = attr.field(factory=list)
+    by_name: Dict[str, Instance] = attr.field(factory=dict)
+    scripts: Dict[str, Script] = attr.field(factory=dict)
+    section: Optional[str] = None
     cur: Optional[Instance] = None
     cur_script: Optional[Script] = None
-    vip_remaining = 0
+    mode: Optional[str] = None  # None | "vip" | "tracked_scripts" | "tracking_instances"
 
-    for raw in text.splitlines():
-        if not raw.strip():
-            continue
-
-        # Indented VIP address lines following a "Virtual IP = N" header.
-        if vip_remaining > 0 and cur is not None:
-            m = _IP_RE.match(raw)
-            if m:
-                cur.vips.append(m.group(1))
-                vip_remaining -= 1
-                continue
-
+    def feed(self, raw: str) -> None:
         stripped = raw.strip()
 
+        section_match = _SECTION_RE.match(stripped)
+        if section_match:
+            self._enter_section(section_match.group(1).strip())
+            return
+
+        if self.mode and self._consume_block_line(raw):
+            return
+
         if stripped.startswith("VRRP Instance ="):
-            cur = Instance(name=stripped.split("=", 1)[1].strip())
-            instances.append(cur)
-            cur_script = None
-            vip_remaining = 0
-            continue
+            self._start_instance(_after_eq(stripped))
+        elif stripped.startswith("VRRP Script ="):
+            self._start_script(_after_eq(stripped))
+        elif stripped.startswith("Virtual IP"):
+            self.mode = "vip"
+        elif stripped.startswith("Tracked scripts") and stripped.endswith(":"):
+            self.mode = "tracked_scripts"
+        elif stripped.startswith("Tracking instances") and stripped.endswith(":"):
+            self.mode = "tracking_instances"
+        elif " = " in stripped:
+            self._apply_key(*(p.strip() for p in stripped.split("=", 1)))
 
-        if stripped.startswith("VRRP Script ="):
-            if cur is not None:
-                cur_script = Script(name=stripped.split("=", 1)[1].strip())
-                cur.scripts.append(cur_script)
-            continue
+    def _enter_section(self, name: str) -> None:
+        self.section = name
+        self.mode = None
+        self.cur_script = None
+        if name not in _TOPOLOGY_SECTIONS:
+            self.cur = None
 
-        if cur is None:
-            continue  # topology header / preamble
+    def _start_instance(self, name: str) -> None:
+        self.cur = Instance(name=name)
+        self.instances.append(self.cur)
+        self.by_name[name] = self.cur
+        self.cur_script = None
+        self.mode = None
 
-        if stripped.startswith("Virtual IP ="):
-            vip_remaining = _to_int(stripped.split("=", 1)[1]) or 0
-            continue
+    def _start_script(self, name: str) -> None:
+        self.cur_script = self.scripts.setdefault(name, Script(name=name))
+        self.mode = None
+        # v1: the script block follows its instance, so link it to the current one.
+        if self.section not in ("VRRP Scripts",) and self.cur is not None:
+            _add_script_name(self.cur, name)
 
-        if " = " not in stripped:
-            continue
-        key, value = (p.strip() for p in stripped.split("=", 1))
+    def _consume_block_line(self, raw: str) -> bool:
+        """Handle an indented sub-block line; return False to end the block."""
+        if self.mode == "vip":
+            m = _IP_RE.match(raw)
+            if m and self.cur is not None:
+                self.cur.vips.append(m.group(1))
+                return True
+        elif self.mode == "tracked_scripts":
+            m = _TRACKED_RE.match(raw)
+            if m and " = " not in raw and self.cur is not None:
+                name, weight = m.group(1), m.group(2)
+                script = self.scripts.setdefault(name, Script(name=name))
+                if weight is not None and script.weight is None:
+                    script.weight = _to_int(weight)
+                _add_script_name(self.cur, name)
+                return True
+        elif self.mode == "tracking_instances":
+            m = _TRACKING_RE.match(raw)
+            if m and " = " not in raw and self.cur_script is not None:
+                inst = self.by_name.get(m.group(1))
+                if inst is not None:
+                    _add_script_name(inst, self.cur_script.name)
+                return True
+        self.mode = None  # not a block line: end the block, reprocess below
+        return False
 
-        # Script-scoped keys take priority while inside a VRRP Script block.
-        if cur_script is not None and _apply_script_key(cur_script, key, value):
-            continue
-        _apply_instance_key(cur, key, value)
+    def _apply_key(self, key: str, value: str) -> None:
+        if self.section == "VRRP Scripts":
+            if self.cur_script is not None:
+                _apply_script_key(self.cur_script, key, value)
+            return
+        if self.cur_script is not None and _apply_script_key(self.cur_script, key, value):
+            return
+        if self.cur is not None and self.section in _TOPOLOGY_SECTIONS:
+            _apply_instance_key(self.cur, key, value)
 
-    return instances
+    def finalize(self) -> List[Instance]:
+        for inst in self.instances:
+            inst.scripts = [self.scripts[n] for n in inst.script_names if n in self.scripts]
+        return self.instances
+
+
+def _after_eq(line: str) -> str:
+    return line.split("=", 1)[1].strip()
+
+
+def _add_script_name(inst: Instance, name: str) -> None:
+    if name not in inst.script_names:
+        inst.script_names.append(name)
 
 
 def _apply_script_key(script: Script, key: str, value: str) -> bool:
@@ -252,7 +347,8 @@ def _apply_script_key(script: Script, key: str, value: str) -> bool:
 def _apply_instance_key(inst: Instance, key: str, value: str) -> None:
     """Apply a key/value line to a VRRP instance."""
     if key == "State":
-        inst.state = value
+        if value.strip().upper() in _VALID_STATES:  # ignore interface/script states
+            inst.state = value.strip()
     elif key == "Master router":
         inst.master_router = value
     elif key == "Master priority":

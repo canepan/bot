@@ -1,0 +1,68 @@
+------< Global definitions >------
+ Router ID = clickypi
+ Default interface = eth0
+------< VRRP Topology >------
+ VRRP Instance = ezarr
+   VRRP Version = 2
+   State = MASTER
+   Wantstate = MASTER
+   Last transition = 1782548192.710903 (Sat Jun 27 09:16:32.710903 2026)
+   Interface = wlan0
+   Using src_ip = 192.168.19.226
+   Virtual Router ID = 64
+   Priority = 100
+   Effective priority = 100
+   Virtual IP (1):
+     192.168.19.64/24 dev wlan0 scope global
+   Tracked scripts :
+     chk_ezarr weight -100
+   Generic state transition script = '/etc/keepalived/bin/kanotify.sh', uid:gid 0:0
+ VRRP Instance = www
+   VRRP Version = 2
+   State = BACKUP
+   Master router = 192.168.19.120
+   Master priority = 80
+   Last transition = 1782548189.096089 (Sat Jun 27 09:16:29.096089 2026)
+   Interface = wlan0
+   Using src_ip = 192.168.19.226
+   Virtual Router ID = 66
+   Priority = 100
+   Effective priority = 1
+   Virtual IP (1):
+     192.168.19.66/24 dev wlan0 scope global
+   Tracked scripts :
+     chk_www weight -100
+   Generic state transition script = '/etc/keepalived/bin/kanotify.sh', uid:gid 0:0
+------< VRRP Sockpool >------
+ fd_in 13 fd_out = 14
+   Interface = wlan0
+   Family = IPv4
+   VRRP instances
+     ezarr vrid 64
+     www vrid 66
+------< VRRP Scripts >------
+ VRRP Script = chk_ezarr
+   Command = '/etc/keepalived/bin/check_ezarr.sh'
+   Interval = 60 sec
+   Weight = -100
+   Status = GOOD
+   VRRP instances :
+   Tracking instances :
+     ezarr, weight -100
+   State = idle
+ VRRP Script = chk_www
+   Command = '/etc/keepalived/bin/check_www.sh'
+   Interval = 60 sec
+   Weight = -100
+   Status = BAD
+   VRRP instances :
+   Tracking instances :
+     www, weight -100
+   State = idle
+------< Interfaces >------
+ Name = lo
+   index 1
+   State = UP, RUNNING, no broadcast, loopback, no multicast
+ Name = wlan0
+   index 3
+   State = UP, RUNNING
