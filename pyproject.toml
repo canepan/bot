@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = 'NicolaCanepa_Tools'
-version = "0.1.3"
+version = "0.1.4"
 description = "Useful tools"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -33,7 +33,7 @@ classifiers = [
     'Programming Language :: Python :: 3',
     'Operating System :: OS Independent',
 ]
-license = {text = "MIT"}
+license = "MIT"
 
 [project.optional-dependencies]
 ldap = [ "python-ldap" ]
@@ -131,8 +131,4 @@ show_error_context = false
 strict_optional = false
 follow_imports = "skip"
 exclude = "test/bats/"
-
-[tool.distutils.egg_info]
-# This configuration will make the egg-info directory appear in your package's build directory instead of src/
-egg_base = "build"
 
