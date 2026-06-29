@@ -59,6 +59,8 @@ To allow the creation of graphs for the remaining days, add:
 
 ## ssh-cert-manager
 Manage SSH user (client) certificates signed by an SSH CA (Python counterpart of `shell/bin/ssh_ca_sign.sh`).
+Run with no sub-command for an interactive menu, or use a sub-command:
+* `fetch` copy a public key from a remote host (scp) into the ssh-dir
 * `sign` create/update (re-sign) a user certificate from `<host>_<user>.pub`
 * `list` show issued certificates with principals and expiry
 * `check` report expiry status (exit 0/1/2 = ok/warning/critical), optionally to Xymon (`--xymon`)

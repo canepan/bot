@@ -10,13 +10,13 @@ Workflow (see https://dev.to/gvelrajan/how-to-configure-and-setup-ssh-certificat
   * the CA public key is trusted on hosts via ``TrustedUserCAKeys`` in sshd_config
   * a user public key (``<host>_<user>.pub``) is signed into ``<host>_<user>-cert.pub``
 
-Sub-commands:
+Sub-commands (or run with no sub-command for an interactive menu):
   * ``fetch``  copy a user's public key from a remote host into the ssh-dir
   * ``sign``   create/update (re-sign) a user certificate
   * ``list``   show issued certificates with principals and expiry
   * ``check``  report expiry status (exit 0/1/2 = ok/warning/critical), optionally to Xymon
 
-Dependencies: typer, rich (and the system ``ssh-keygen``).
+Dependencies: typer, questionary, rich (and the system ``ssh-keygen``/``scp``).
 """
 
 import getpass
@@ -25,14 +25,17 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import List, Optional, Tuple
 
 import attr
+import questionary
 import typer
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 
 try:  # shared helper that talks to the Xymon server
@@ -335,14 +338,127 @@ class SshCa:
 
 
 # ---------------------------------------------------------------------------
+# Interactive menu (questionary)
+# ---------------------------------------------------------------------------
+def _ask_text(message: str, default: str = "") -> Optional[str]:
+    """Prompt for text; returns None if cancelled (Ctrl-C)."""
+    return questionary.text(message, default=default).ask()
+
+
+def _ask_confirm(message: str, default: bool = False) -> bool:
+    return bool(questionary.confirm(message, default=default).ask())
+
+
+def action_fetch(ca: "SshCa") -> None:
+    scp = _find_scp()
+    if not scp:
+        console.print("Could not find the 'scp' executable.", style="bold red")
+        return
+    host = _ask_text("Host label (for the local filename <host>_<user>.pub)")
+    if not host:
+        return
+    user = _ask_text("User id / login", default=getpass.getuser()) or getpass.getuser()
+    key_type = _ask_text("Remote key type (fills id_<type>.pub)", default=DEFAULT_KEY_TYPE) or DEFAULT_KEY_TYPE
+    remote_host = _ask_text("SSH host to connect to", default=host) or host
+    ssh_user = _ask_text("SSH login", default=user) or user
+    fetch_public_key(
+        ssh_dir=ca.ssh_dir,
+        host=host,
+        user=user,
+        remote_host=remote_host,
+        ssh_user=ssh_user,
+        remote_key=REMOTE_KEY_TEMPLATE.format(key_type=key_type),
+        scp=scp,
+    )
+
+
+def action_sign(ca: "SshCa") -> None:
+    host = _ask_text("Host label", default=socket.gethostname().split(".")[0])
+    if not host:
+        return
+    user = _ask_text("User id / login", default=getpass.getuser()) or getpass.getuser()
+    domain = _ask_text("Domain", default=_default_domain()) or ""
+    validity = _ask_text("Validity (ssh-keygen -V)", default=DEFAULT_VALIDITY) or DEFAULT_VALIDITY
+    principals = _ask_text("Principals (comma-separated)", default=user) or user
+    default_identity = f"{user}@{domain}" if domain else user
+    identity = _ask_text("Certificate identity / key id", default=default_identity) or default_identity
+    ca.sign(host=host, user=user, identity=identity, principals=principals, validity=validity)
+
+
+def action_list(ca: "SshCa") -> None:
+    certs = list_certs(ca.ssh_dir, ca.ssh_keygen)
+    if not certs:
+        console.print(f"No certificates ({CERT_SUFFIX}) found in {ca.ssh_dir}.", style="yellow")
+        return
+    console.print(_render_table(certs))
+
+
+def action_check(ca: "SshCa") -> None:
+    certs = list_certs(ca.ssh_dir, ca.ssh_keygen)
+    if not certs:
+        console.print(f"No certificates ({CERT_SUFFIX}) found in {ca.ssh_dir}.", style="yellow")
+        return
+    console.print(_render_table(certs))
+    if Xymon is not None and _ask_confirm("Publish expiry status to Xymon?", default=False):
+        dry_run = _ask_confirm("Dry-run (echo the command instead of sending)?", default=False)
+        _publish_xymon(certs, check_name=XYMON_CHECK_NAME, warn_days=WARN_DAYS, crit_days=CRIT_DAYS, dry_run=dry_run)
+
+
+_MENU = (
+    ("Fetch a public key from a remote host", action_fetch),
+    ("Sign / update a certificate", action_sign),
+    ("List certificates", action_list),
+    ("Check expiry", action_check),
+)
+
+
+def _status_panel(ca: "SshCa") -> Panel:
+    def mark(ok: bool) -> str:
+        return "[green]ready[/green]" if ok else "[red]missing[/red]"
+
+    count = len(list_certs(ca.ssh_dir, ca.ssh_keygen))
+    body = "\n".join(
+        (
+            f"ssh dir    : [bold]{ca.ssh_dir}[/bold]",
+            f"CA key     : {mark(Path(ca.ca_key).is_file())}  ({ca.ca_key})",
+            f"ssh-keygen : {ca.ssh_keygen}",
+            f"Certs      : {count} certificate(s)",
+        )
+    )
+    return Panel(body, title="SSH Certificate Manager", border_style="cyan", expand=False)
+
+
+def menu_loop(ca: "SshCa") -> None:
+    labels = {label: func for label, func in _MENU}
+    quit_label = "Quit"
+    while True:
+        console.print()
+        console.print(_status_panel(ca))
+        choice = questionary.select(
+            "What would you like to do?",
+            choices=[label for label, _ in _MENU] + [questionary.Separator(), quit_label],
+        ).ask()
+        if choice is None or choice == quit_label:
+            break
+        action = labels.get(choice)
+        if action is None:
+            continue
+        try:
+            action(ca)
+        except KeyboardInterrupt:
+            console.print("\nInterrupted.", style="yellow")
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 app = typer.Typer(
     add_completion=False,
-    no_args_is_help=True,
+    no_args_is_help=False,
     help=(
         "Manage SSH user (client) certificates signed by an SSH CA.\n\n"
-        "Sub-commands: fetch (copy a remote public key), sign (create/update), list, check (expiry)."
+        "Run without a sub-command for an interactive menu, or use a sub-command "
+        "(fetch, sign, list, check) for scripting/non-interactive use."
     ),
 )
 
@@ -359,7 +475,7 @@ def _build_ca(ctx: typer.Context) -> SshCa:
     )
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
     ssh_dir: str = typer.Option(DEFAULT_SSH_DIR, "--ssh-dir", help="Directory holding public keys and certificates."),
@@ -370,6 +486,27 @@ def main(
 ) -> None:
     """SSH user certificate manager."""
     ctx.obj = {"ssh_dir": ssh_dir, "ca_key": ca_key, "ssh_keygen": ssh_keygen}
+
+    # A sub-command was requested: let it run, skip the interactive menu.
+    if ctx.invoked_subcommand is not None:
+        return
+
+    # No sub-command -> interactive menu (needs a real terminal).
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        console.print(
+            "ssh-cert-manager's interactive menu needs a real terminal (TTY).\n"
+            "Use a sub-command instead (see 'ssh-cert-manager --help').",
+            style="bold red",
+        )
+        raise typer.Exit(code=1)
+
+    ca = _build_ca(ctx)
+    console.print(f"Using ssh-keygen: {ca.ssh_keygen}", style="dim")
+    try:
+        menu_loop(ca)
+    except (KeyboardInterrupt, EOFError):
+        console.print()
+    console.print("Bye.", style="cyan")
 
 
 @app.command("fetch")

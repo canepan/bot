@@ -1,3 +1,6 @@
+## v0.1.4
+* `ssh-cert-manager`: add an interactive menu (run with no sub-command) alongside the
+  existing `fetch`/`sign`/`list`/`check` sub-commands
 ## v0.1.3
 New tools:
 * add `ka-status` (`keepalived_status.py`): parse `keepalived.data` and show VRRP state

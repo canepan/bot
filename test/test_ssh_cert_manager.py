@@ -239,3 +239,41 @@ def test_cli_check_exit_code_critical(tmp_path, patch_parse):
     patch_parse(near)
     result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "check"])
     assert result.exit_code == 2
+
+
+# --------------------------------------------------------------------------
+# Interactive menu
+# --------------------------------------------------------------------------
+def test_cli_no_args_requires_tty():
+    # CliRunner has no real TTY, so the menu path should refuse and exit 1.
+    result = runner.invoke(scm.app, [])
+    assert result.exit_code == 1
+    assert "terminal" in result.output.lower() or "tty" in result.output.lower()
+
+
+@pytest.fixture
+def menu_select(monkeypatch):
+    """Drive questionary.select with a queue of answers."""
+
+    def install(answers):
+        it = iter(answers)
+        sel = mock.Mock()
+        sel.ask.side_effect = lambda: next(it)
+        monkeypatch.setattr(scm.questionary, "select", lambda *a, **k: sel)
+
+    return install
+
+
+def test_menu_loop_quits_immediately(menu_select):
+    ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key="/no/ca", ssh_dir="/no/dir")
+    menu_select(["Quit"])
+    scm.menu_loop(ca)  # returns without error (missing dir -> no certs)
+
+
+def test_menu_loop_runs_action(menu_select, monkeypatch):
+    ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key="/no/ca", ssh_dir="/tmp")
+    menu_select(["List certificates", "Quit"])
+    lc = mock.Mock(return_value=[])
+    monkeypatch.setattr(scm, "list_certs", lc)
+    scm.menu_loop(ca)
+    assert lc.called
