@@ -9,6 +9,9 @@ New tools:
 * add `vpn-manager` (typer-based) to manage an EasyRSA PKI: init-pki, build-ca,
   build-server/build-client, revoke, renew, gen-crl, gen-dh, list, show, export
   (`.ovpn` bundle), and `xymon` to report certificate expiry
+* add `ssh-cert-manager` (typer-based, Python counterpart of `shell/bin/ssh_ca_sign.sh`)
+  to manage SSH user (client) certificates: `fetch` (scp a remote public key),
+  `sign` (create/update), `list`, and `check` (expiry, optionally reported to Xymon)
 * add `xymon-ip-check`: compare the public IPv4 (ifconfig.io) against an external DNS
   lookup and report the result to Xymon
 * add `tags-report` (`music_tags_report.py`, evolution of `id3-checker`): report ID3
