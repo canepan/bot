@@ -11,10 +11,12 @@ Workflow (see https://dev.to/gvelrajan/how-to-configure-and-setup-ssh-certificat
   * a user public key (``<host>_<user>.pub``) is signed into ``<host>_<user>-cert.pub``
 
 Sub-commands (or run with no sub-command for an interactive menu):
-  * ``fetch``  copy a user's public key from a remote host into the ssh-dir
-  * ``sign``   create/update (re-sign) a user certificate
-  * ``list``   show issued certificates with principals and expiry
-  * ``check``  report expiry status (exit 0/1/2 = ok/warning/critical), optionally to Xymon
+  * ``fetch``       copy a user's public key from a remote host into the ssh-dir
+  * ``sign``        create/update (re-sign) a user certificate
+  * ``distribute``  copy a signed certificate back to the remote host's key dir
+  * ``list``        show issued certificates with principals and expiry
+  * ``check``       report expiry status (exit 0/1/2 = ok/warning/critical), optionally to Xymon
+  * ``setup-host``  configure the local sshd to trust the user CA (root only)
 
 Dependencies: typer, questionary, rich (and the system ``ssh-keygen``/``scp``).
 """
@@ -127,6 +129,96 @@ def fetch_public_key(
     else:
         console.print(f"scp failed (exit {result.returncode}).", style="bold red")
     return result.returncode
+
+
+def _remote_cert_path(remote_key: str) -> str:
+    """Derive the remote cert path from the remote public-key path.
+
+    e.g. ``.ssh/id_rsa.pub`` -> ``.ssh/id_rsa-cert.pub`` so ssh auto-loads the
+    certificate alongside the matching private key.
+    """
+    return remote_key.removesuffix(".pub") + CERT_SUFFIX
+
+
+def distribute_cert(
+    ssh_dir: str,
+    host: str,
+    user: str,
+    remote_host: str,
+    ssh_user: str,
+    remote_key: str,
+    scp: str = "scp",
+) -> int:
+    """Copy the signed cert ``<host>_<user>-cert.pub`` to the remote user's key dir.
+
+    The remote destination mirrors the remote key name (``id_rsa.pub`` ->
+    ``id_rsa-cert.pub``) so OpenSSH picks it up automatically.
+    """
+    cert = Path(ssh_dir) / f"{host}_{user}{CERT_SUFFIX}"
+    if not cert.is_file():
+        console.print(f"Certificate not found: {cert}\nSign it first ('sign').", style="bold red")
+        return 1
+    dest = f"{ssh_user}@{remote_host}:{_remote_cert_path(remote_key)}"
+    cmd = [scp, str(cert), dest]
+    console.print("$ " + " ".join(cmd), style="dim")
+    try:
+        result = subprocess.run(cmd)
+    except FileNotFoundError:
+        console.print(f"scp not found: {scp}", style="bold red")
+        return 127
+    if result.returncode == 0:
+        console.print(f"Distributed {cert.name} -> {dest}", style="green")
+    else:
+        console.print(f"scp failed (exit {result.returncode}).", style="bold red")
+    return result.returncode
+
+
+def _is_root() -> bool:
+    return getpass.getuser() == "root"
+
+
+def configure_sshd(
+    ca_pub: str,
+    trusted_ca_dest: str = "/etc/ssh/ssh_user_ca.pub",
+    sshd_conf: str = "/etc/ssh/sshd_config.d/user_ca.conf",
+) -> int:
+    """Configure the local sshd to trust the user CA (root only).
+
+    Copies the CA public key to ``trusted_ca_dest`` and adds a
+    ``TrustedUserCAKeys`` directive in a drop-in ``sshd_conf`` (idempotent).
+    Does NOT restart sshd; prints validation/restart guidance instead.
+    """
+    if not _is_root():
+        console.print("'setup-host' must be run as root (it writes under /etc/ssh).", style="bold red")
+        return 1
+    ca_pub_path = Path(ca_pub)
+    if not ca_pub_path.is_file():
+        console.print(f"CA public key not found: {ca_pub_path}", style="bold red")
+        return 1
+
+    dest = Path(trusted_ca_dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(ca_pub_path, dest)
+    console.print(f"Installed CA public key -> {dest}", style="green")
+
+    conf = Path(sshd_conf)
+    conf.parent.mkdir(parents=True, exist_ok=True)
+    directive = f"TrustedUserCAKeys {trusted_ca_dest}"
+    existing = conf.read_text() if conf.is_file() else ""
+    if directive in existing:
+        console.print(f"{conf} already trusts the CA.", style="yellow")
+    else:
+        with conf.open("a") as f:
+            if existing and not existing.endswith("\n"):
+                f.write("\n")
+            f.write(directive + "\n")
+        console.print(f"Wrote '{directive}' -> {conf}", style="green")
+
+    console.print(
+        "Validate and apply with: [bold]sshd -t[/bold] && [bold]systemctl restart sshd[/bold]",
+        style="cyan",
+    )
+    return 0
 
 
 def _default_domain() -> str:
@@ -393,6 +485,35 @@ def action_list(ca: "SshCa") -> None:
     console.print(_render_table(certs))
 
 
+def action_distribute(ca: "SshCa") -> None:
+    scp = _find_scp()
+    if not scp:
+        console.print("Could not find the 'scp' executable.", style="bold red")
+        return
+    host = _ask_text("Host label (local cert <host>_<user>-cert.pub)")
+    if not host:
+        return
+    user = _ask_text("User id / login", default=getpass.getuser()) or getpass.getuser()
+    key_type = _ask_text("Remote key type (target id_<type>-cert.pub)", default=DEFAULT_KEY_TYPE) or DEFAULT_KEY_TYPE
+    remote_host = _ask_text("SSH host to connect to", default=host) or host
+    ssh_user = _ask_text("SSH login", default=user) or user
+    distribute_cert(
+        ssh_dir=ca.ssh_dir,
+        host=host,
+        user=user,
+        remote_host=remote_host,
+        ssh_user=ssh_user,
+        remote_key=REMOTE_KEY_TEMPLATE.format(key_type=key_type),
+        scp=scp,
+    )
+
+
+def action_setup_host(ca: "SshCa") -> None:
+    if not _ask_confirm("Configure THIS host's sshd to trust the user CA (writes /etc/ssh)?", default=False):
+        return
+    configure_sshd(ca_pub=f"{ca.ca_key}.pub")
+
+
 def action_check(ca: "SshCa") -> None:
     certs = list_certs(ca.ssh_dir, ca.ssh_keygen)
     if not certs:
@@ -407,8 +528,10 @@ def action_check(ca: "SshCa") -> None:
 _MENU = (
     ("Fetch a public key from a remote host", action_fetch),
     ("Sign / update a certificate", action_sign),
+    ("Distribute a certificate to a remote host", action_distribute),
     ("List certificates", action_list),
     ("Check expiry", action_check),
+    ("Configure this host's sshd to trust the CA (root)", action_setup_host),
 )
 
 
@@ -458,7 +581,7 @@ app = typer.Typer(
     help=(
         "Manage SSH user (client) certificates signed by an SSH CA.\n\n"
         "Run without a sub-command for an interactive menu, or use a sub-command "
-        "(fetch, sign, list, check) for scripting/non-interactive use."
+        "(fetch, sign, distribute, list, check, setup-host) for scripting/non-interactive use."
     ),
 )
 
@@ -536,6 +659,53 @@ def cmd_fetch(
         remote_key=resolved_key,
         scp=scp,
     )
+    raise typer.Exit(code=rc)
+
+
+@app.command("distribute")
+def cmd_distribute(
+    ctx: typer.Context,
+    host: str = typer.Argument(..., help="Host label of the local cert <host>_<user>-cert.pub."),
+    user: str = typer.Option(getpass.getuser(), "--user", "-u", help="User id / login (also the local filename part)."),
+    key_type: str = typer.Option(DEFAULT_KEY_TYPE, "--key-type", "-t", help="Remote key type (id_<type>-cert.pub)."),
+    remote_key: Optional[str] = typer.Option(
+        None, "--remote-key", help="Full remote public-key path (overrides --key-type; cert derived from it)."
+    ),
+    remote_host: Optional[str] = typer.Option(None, "--remote-host", help="SSH host to connect to (default: <host>)."),
+    ssh_user: Optional[str] = typer.Option(None, "--ssh-user", help="Login for the SSH connection (default: <user>)."),
+) -> None:
+    """Copy the signed certificate to the remote host's key directory."""
+    scp = _find_scp()
+    if not scp:
+        console.print("Could not find the 'scp' executable.", style="bold red")
+        raise typer.Exit(code=1)
+    resolved_key = remote_key or REMOTE_KEY_TEMPLATE.format(key_type=key_type)
+    rc = distribute_cert(
+        ssh_dir=str(Path(ctx.obj["ssh_dir"]).expanduser()),
+        host=host,
+        user=user,
+        remote_host=remote_host or host,
+        ssh_user=ssh_user or user,
+        remote_key=resolved_key,
+        scp=scp,
+    )
+    raise typer.Exit(code=rc)
+
+
+@app.command("setup-host")
+def cmd_setup_host(
+    ctx: typer.Context,
+    ca_pub: Optional[str] = typer.Option(None, "--ca-pub", help="CA public key to trust (default: <ca-key>.pub)."),
+    trusted_ca_dest: str = typer.Option(
+        "/etc/ssh/ssh_user_ca.pub", "--trusted-ca-dest", help="Where to install the CA public key."
+    ),
+    sshd_conf: str = typer.Option(
+        "/etc/ssh/sshd_config.d/user_ca.conf", "--sshd-conf", help="sshd drop-in to write TrustedUserCAKeys into."
+    ),
+) -> None:
+    """Configure THIS host's sshd to trust the user CA (root only; does not restart sshd)."""
+    resolved_ca_pub = ca_pub or f"{Path(ctx.obj['ca_key']).expanduser()}.pub"
+    rc = configure_sshd(ca_pub=resolved_ca_pub, trusted_ca_dest=trusted_ca_dest, sshd_conf=sshd_conf)
     raise typer.Exit(code=rc)
 
 

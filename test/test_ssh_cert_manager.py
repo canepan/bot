@@ -27,36 +27,51 @@ SAMPLE_L = """\
 
 
 # --------------------------------------------------------------------------
-# Fixtures
+# Fixtures (only patch *external* dependencies)
 # --------------------------------------------------------------------------
 @pytest.fixture
 def mock_run(monkeypatch):
-    """Patch subprocess.run; default returns rc=0. Tests can tweak it."""
+    """Patch subprocess.run (scp / ssh-keygen execution); default rc=0."""
     m = mock.Mock(return_value=mock.Mock(returncode=0))
     monkeypatch.setattr(scm.subprocess, "run", m)
     return m
 
 
 @pytest.fixture
-def find_scp(monkeypatch):
-    """Pretend scp is available on PATH."""
-    monkeypatch.setattr(scm, "_find_scp", lambda: "scp")
+def which_ok(monkeypatch):
+    """Pretend any external tool (scp, ssh-keygen) is found on PATH."""
+    monkeypatch.setattr(scm.shutil, "which", lambda name: f"/usr/bin/{name}")
 
 
 @pytest.fixture
-def captured_fetch(monkeypatch):
-    """Capture the kwargs passed to fetch_public_key (returns the dict)."""
-    captured = {}
-    monkeypatch.setattr(scm, "fetch_public_key", lambda **kw: captured.update(kw) or 0)
-    return captured
+def as_root(monkeypatch):
+    monkeypatch.setattr(scm.getpass, "getuser", lambda: "root")
 
 
 @pytest.fixture
-def patch_parse(monkeypatch):
-    """Install a fake parse_cert that parses the given -L text (default SAMPLE_L)."""
+def not_root(monkeypatch):
+    monkeypatch.setattr(scm.getpass, "getuser", lambda: "bob")
+
+
+@pytest.fixture
+def keygen_output(monkeypatch):
+    """Make `ssh-keygen -L` (subprocess.check_output) return given text."""
 
     def install(text=SAMPLE_L):
-        monkeypatch.setattr(scm, "parse_cert", lambda path, kg=None: scm._parse_cert_text(path, text))
+        monkeypatch.setattr(scm.subprocess, "check_output", lambda *a, **k: text)
+
+    return install
+
+
+@pytest.fixture
+def menu_select(monkeypatch):
+    """Drive questionary.select with a queue of answers."""
+
+    def install(answers):
+        it = iter(answers)
+        sel = mock.Mock()
+        sel.ask.side_effect = lambda: next(it)
+        monkeypatch.setattr(scm.questionary, "select", lambda *a, **k: sel)
 
     return install
 
@@ -86,6 +101,12 @@ def test_parse_cert_text_forever():
     info = scm._parse_cert_text("/x/c-cert.pub", text)
     assert info.forever
     assert info.valid_to is None
+
+
+def test_parse_cert_invokes_ssh_keygen(keygen_output):
+    keygen_output()
+    info = scm.parse_cert("/x/host1_bob-cert.pub")
+    assert info.key_id == "bob@example.com"
 
 
 # --------------------------------------------------------------------------
@@ -126,10 +147,10 @@ def test_xymon_report_worst_wins():
 # --------------------------------------------------------------------------
 # list_certs
 # --------------------------------------------------------------------------
-def test_list_certs(tmp_path, patch_parse):
+def test_list_certs(tmp_path, keygen_output):
     (tmp_path / "host1_bob-cert.pub").write_text("dummy")
     (tmp_path / "ignore.txt").write_text("nope")
-    patch_parse()
+    keygen_output()
     certs = scm.list_certs(str(tmp_path))
     assert [c.name for c in certs] == ["host1_bob"]
 
@@ -156,16 +177,18 @@ def test_sign_builds_expected_command(tmp_path, mock_run):
     assert cmd[-1] == str(ssh_dir / "host1_bob.pub")
 
 
-def test_sign_missing_pubkey(tmp_path):
+def test_sign_missing_pubkey(tmp_path, mock_run):
     ca_key = tmp_path / "ca"
     ca_key.write_text("CA")
     ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key=str(ca_key), ssh_dir=str(tmp_path))
     assert ca.sign(host="host1", user="bob", identity="bob", principals="bob", validity="+52w") == 1
+    mock_run.assert_not_called()
 
 
-def test_sign_missing_ca_key(tmp_path):
+def test_sign_missing_ca_key(tmp_path, mock_run):
     ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key=str(tmp_path / "nope"), ssh_dir=str(tmp_path))
     assert ca.sign(host="host1", user="bob", identity="bob", principals="bob", validity="+52w") == 1
+    mock_run.assert_not_called()
 
 
 # --------------------------------------------------------------------------
@@ -195,34 +218,75 @@ def test_fetch_public_key_scp_missing(tmp_path, mock_run):
     assert rc == 127
 
 
-def test_cli_fetch_defaults_key_type_rsa(tmp_path, find_scp, captured_fetch):
-    result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "fetch", "host1", "--user", "bob"])
-    assert result.exit_code == 0
-    # remote_host/ssh_user default to host/user; remote_key built from the rsa template.
-    assert captured_fetch["remote_host"] == "host1"
-    assert captured_fetch["ssh_user"] == "bob"
-    assert captured_fetch["remote_key"] == ".ssh/id_rsa.pub"
+# --------------------------------------------------------------------------
+# distribute
+# --------------------------------------------------------------------------
+def test_remote_cert_path():
+    assert scm._remote_cert_path(".ssh/id_rsa.pub") == ".ssh/id_rsa-cert.pub"
+    assert scm._remote_cert_path("/etc/ssh/custom") == "/etc/ssh/custom-cert.pub"
 
 
-def test_cli_fetch_key_type_override(tmp_path, find_scp, captured_fetch):
-    result = runner.invoke(
-        scm.app, ["--ssh-dir", str(tmp_path), "fetch", "host1", "-u", "bob", "--key-type", "ed25519"]
+def test_distribute_cert_builds_scp_command(tmp_path, mock_run):
+    (tmp_path / "host1_bob-cert.pub").write_text("CERT")
+    rc = scm.distribute_cert(
+        ssh_dir=str(tmp_path),
+        host="host1",
+        user="bob",
+        remote_host="host1",
+        ssh_user="bob",
+        remote_key=".ssh/id_rsa.pub",
+        scp="scp",
     )
-    assert result.exit_code == 0
-    assert captured_fetch["remote_key"] == ".ssh/id_ed25519.pub"
+    assert rc == 0
+    assert mock_run.call_args.args[0] == [
+        "scp",
+        str(tmp_path / "host1_bob-cert.pub"),
+        "bob@host1:.ssh/id_rsa-cert.pub",
+    ]
 
 
-def test_cli_fetch_remote_key_overrides_template(tmp_path, find_scp, captured_fetch):
-    result = runner.invoke(
-        scm.app,
-        ["--ssh-dir", str(tmp_path), "fetch", "host1", "--remote-key", "/etc/ssh/custom.pub", "--key-type", "rsa"],
+def test_distribute_cert_missing(tmp_path, mock_run):
+    rc = scm.distribute_cert(
+        ssh_dir=str(tmp_path), host="h", user="u", remote_host="h", ssh_user="u", remote_key=".ssh/id_rsa.pub"
     )
-    assert result.exit_code == 0
-    assert captured_fetch["remote_key"] == "/etc/ssh/custom.pub"
+    assert rc == 1
+    mock_run.assert_not_called()
 
 
 # --------------------------------------------------------------------------
-# CLI: list / check
+# setup-host (configure sshd)
+# --------------------------------------------------------------------------
+def test_configure_sshd_requires_root(tmp_path, not_root):
+    assert scm.configure_sshd(ca_pub=str(tmp_path / "ca.pub")) == 1
+
+
+def test_configure_sshd_writes_files(tmp_path, as_root):
+    ca_pub = tmp_path / "ca.pub"
+    ca_pub.write_text("ssh-ed25519 AAAA ca")
+    dest = tmp_path / "etc" / "ssh_user_ca.pub"
+    conf = tmp_path / "etc" / "sshd_config.d" / "user_ca.conf"
+    rc = scm.configure_sshd(ca_pub=str(ca_pub), trusted_ca_dest=str(dest), sshd_conf=str(conf))
+    assert rc == 0
+    assert dest.read_text() == "ssh-ed25519 AAAA ca"
+    assert f"TrustedUserCAKeys {dest}" in conf.read_text()
+
+
+def test_configure_sshd_idempotent(tmp_path, as_root):
+    ca_pub = tmp_path / "ca.pub"
+    ca_pub.write_text("ca")
+    dest = tmp_path / "ssh_user_ca.pub"
+    conf = tmp_path / "user_ca.conf"
+    scm.configure_sshd(ca_pub=str(ca_pub), trusted_ca_dest=str(dest), sshd_conf=str(conf))
+    scm.configure_sshd(ca_pub=str(ca_pub), trusted_ca_dest=str(dest), sshd_conf=str(conf))
+    assert conf.read_text().count(f"TrustedUserCAKeys {dest}") == 1
+
+
+def test_configure_sshd_missing_ca_pub(tmp_path, as_root):
+    assert scm.configure_sshd(ca_pub=str(tmp_path / "nope.pub")) == 1
+
+
+# --------------------------------------------------------------------------
+# CLI
 # --------------------------------------------------------------------------
 def test_cli_list_empty(tmp_path):
     result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "list"])
@@ -230,15 +294,52 @@ def test_cli_list_empty(tmp_path):
     assert "No certificates" in result.output
 
 
-def test_cli_check_exit_code_critical(tmp_path, patch_parse):
+def test_cli_check_exit_code_critical(tmp_path, keygen_output):
     (tmp_path / "host1_bob-cert.pub").write_text("dummy")
     near = SAMPLE_L.replace(
         "to 2027-06-28T10:00:00",
         "to " + (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%S"),
     )
-    patch_parse(near)
+    keygen_output(near)
     result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "check"])
     assert result.exit_code == 2
+
+
+def test_cli_fetch_defaults_key_type_rsa(tmp_path, which_ok, mock_run):
+    result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "fetch", "host1", "--user", "bob"])
+    assert result.exit_code == 0
+    cmd = mock_run.call_args.args[0]
+    assert cmd[0].endswith("scp")
+    assert cmd[1] == "bob@host1:.ssh/id_rsa.pub"
+    assert cmd[2] == str(tmp_path / "host1_bob.pub")
+
+
+def test_cli_fetch_key_type_override(tmp_path, which_ok, mock_run):
+    result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "fetch", "host1", "-u", "bob", "-t", "ed25519"])
+    assert result.exit_code == 0
+    assert mock_run.call_args.args[0][1] == "bob@host1:.ssh/id_ed25519.pub"
+
+
+def test_cli_fetch_remote_key_overrides_template(tmp_path, which_ok, mock_run):
+    result = runner.invoke(
+        scm.app, ["--ssh-dir", str(tmp_path), "fetch", "host1", "--remote-key", "/etc/ssh/custom.pub"]
+    )
+    assert result.exit_code == 0
+    assert mock_run.call_args.args[0][1].endswith(":/etc/ssh/custom.pub")
+
+
+def test_cli_distribute_defaults(tmp_path, which_ok, mock_run):
+    (tmp_path / "host1_bob-cert.pub").write_text("CERT")
+    result = runner.invoke(scm.app, ["--ssh-dir", str(tmp_path), "distribute", "host1", "-u", "bob"])
+    assert result.exit_code == 0
+    cmd = mock_run.call_args.args[0]
+    assert cmd[1] == str(tmp_path / "host1_bob-cert.pub")
+    assert cmd[2] == "bob@host1:.ssh/id_rsa-cert.pub"
+
+
+def test_cli_setup_host_not_root(tmp_path, not_root):
+    result = runner.invoke(scm.app, ["--ca-key", str(tmp_path / "ca"), "setup-host"])
+    assert result.exit_code == 1
 
 
 # --------------------------------------------------------------------------
@@ -251,29 +352,14 @@ def test_cli_no_args_requires_tty():
     assert "terminal" in result.output.lower() or "tty" in result.output.lower()
 
 
-@pytest.fixture
-def menu_select(monkeypatch):
-    """Drive questionary.select with a queue of answers."""
-
-    def install(answers):
-        it = iter(answers)
-        sel = mock.Mock()
-        sel.ask.side_effect = lambda: next(it)
-        monkeypatch.setattr(scm.questionary, "select", lambda *a, **k: sel)
-
-    return install
-
-
-def test_menu_loop_quits_immediately(menu_select):
-    ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key="/no/ca", ssh_dir="/no/dir")
+def test_menu_loop_quits_immediately(tmp_path, menu_select):
+    ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key="/no/ca", ssh_dir=str(tmp_path))
     menu_select(["Quit"])
-    scm.menu_loop(ca)  # returns without error (missing dir -> no certs)
+    scm.menu_loop(ca)  # returns without error (empty dir -> no certs)
 
 
-def test_menu_loop_runs_action(menu_select, monkeypatch):
-    ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key="/no/ca", ssh_dir="/tmp")
+def test_menu_loop_runs_action(tmp_path, menu_select, capsys):
+    ca = scm.SshCa(ssh_keygen="ssh-keygen", ca_key="/no/ca", ssh_dir=str(tmp_path))
     menu_select(["List certificates", "Quit"])
-    lc = mock.Mock(return_value=[])
-    monkeypatch.setattr(scm, "list_certs", lc)
     scm.menu_loop(ca)
-    assert lc.called
+    assert "No certificates" in capsys.readouterr().out

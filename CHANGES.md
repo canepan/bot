@@ -1,6 +1,8 @@
 ## v0.1.4
 * `ssh-cert-manager`: add an interactive menu (run with no sub-command) alongside the
   existing `fetch`/`sign`/`list`/`check` sub-commands
+* `ssh-cert-manager`: add `distribute` (scp a signed cert back to the remote host's key
+  dir) and `setup-host` (configure the local sshd to trust the user CA, root only)
 ## v0.1.3
 New tools:
 * add `ka-status` (`keepalived_status.py`): parse `keepalived.data` and show VRRP state

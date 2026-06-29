@@ -62,7 +62,9 @@ Manage SSH user (client) certificates signed by an SSH CA (Python counterpart of
 Run with no sub-command for an interactive menu, or use a sub-command:
 * `fetch` copy a public key from a remote host (scp) into the ssh-dir
 * `sign` create/update (re-sign) a user certificate from `<host>_<user>.pub`
+* `distribute` copy the signed certificate back to the remote host's key dir (as `<key>-cert.pub`)
 * `list` show issued certificates with principals and expiry
 * `check` report expiry status (exit 0/1/2 = ok/warning/critical), optionally to Xymon (`--xymon`)
+* `setup-host` configure the local sshd to trust the user CA (root only; writes `/etc/ssh`, does not restart sshd)
 
 Defaults match the shell script: keys in `~/Documents/ssh/`, CA key `~/.ssh/ssh_user_ca`, validity `+52w`.
