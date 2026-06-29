@@ -56,3 +56,11 @@ To allow the creation of graphs for the remaining days, add:
 * `,vpncerts=ncv` to TEST2RRD inside `xymonserver.cfg`
 * `NCV_vpncerts="*:GAUGE"` to `xymonserver.cfg`
 * copy the file `etc/xymon_graphs-vpncerts.cfg` to `/etc/xymon/graphs.d/vpncerts.cfg`
+
+## ssh-cert-manager
+Manage SSH user (client) certificates signed by an SSH CA (Python counterpart of `shell/bin/ssh_ca_sign.sh`).
+* `sign` create/update (re-sign) a user certificate from `<host>_<user>.pub`
+* `list` show issued certificates with principals and expiry
+* `check` report expiry status (exit 0/1/2 = ok/warning/critical), optionally to Xymon (`--xymon`)
+
+Defaults match the shell script: keys in `~/Documents/ssh/`, CA key `~/.ssh/ssh_user_ca`, validity `+52w`.
