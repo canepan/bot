@@ -1,9 +1,6 @@
 #!/mnt/opt/nicola/tools/bin/python3
-import attr
 import argparse
 import getpass
-import json
-import logging
 import os
 import subprocess
 import sys
@@ -24,7 +21,6 @@ def parse_args(argv: list, descr: str = 'Manage internet lockdown') -> argparse.
     parser.add_argument('command', help='on or off', choices=('on', 'off'))
     parser.add_argument('--unsafe', action='store_true', help='Really run commands')
     cfg = parser.parse_args(argv)
-    cfg_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     cfg.config = config[cfg.command]
 
     log = cfg.log

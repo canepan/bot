@@ -105,7 +105,9 @@ class FirewallManager(AllowDenyManager):
         if self.timeout is None:
             command.append(f'/ip firewall address-list disable numbers={self.rules}')
         else:
-            command.append(f'/ip firewall address-list add list=KidsTemporaryAllow address=192.168.19.137 timeout={self.timeout}m')
+            command.append(
+                f'/ip firewall address-list add list=KidsTemporaryAllow'
+                f' address=192.168.19.137 timeout={self.timeout}m')
         if self.pretend:
             return f'Would execute {command}'
         return subprocess.check_output(command, stderr=subprocess.PIPE).decode('utf-8')

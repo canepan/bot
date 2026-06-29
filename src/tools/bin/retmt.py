@@ -17,7 +17,7 @@ CpuFil = '/sys/class/thermal/thermal_zone0/temp'
 GpuCmd = '/usr/bin/vcgencmd measure_temp'
 
 
-def inform_xymon(ErrMsg):
+def inform_xymon(result, ErrMsg):
     XyDisp = os.getenv('XYMSRV')  # Name of monitor server
     XySend = os.getenv('XYMON')  # Monitor interface program
     FmtDate = os.getenv('XYMONDATEFORMAT', '%Y.%m.%d %H:%M:%S')  # Default date format
@@ -93,8 +93,10 @@ def build_message(Temp, ErrMsg):
     TempAvg = 0
     TempMax = -100
 
-    result = ("<table border=1 cellpadding=5>\n"
-             " <tr> <th>Sensor</th> <th>Temp [C]</th> <th>Threshold [C]</th> </tr>\n")
+    result = (
+        "<table border=1 cellpadding=5>\n"
+        " <tr> <th>Sensor</th> <th>Temp [C]</th> <th>Threshold [C]</th> </tr>\n"
+    )
 
     for sensor, data in Temp.items():
         TempMin = min(TempMin, data['input'])

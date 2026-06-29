@@ -35,9 +35,9 @@ def main(argv: list = sys.argv[1:]):
     create_flag_file()
     fw_key = os.path.join(os.environ['HOME'], '.ssh', 'mt_remote')
     fw_cmd = f'/ip firewall address-list add list=KidsTemporaryAllow address=192.168.19.137 timeout={cfg.how_long}m'
-    output = subprocess.check_output(
+    subprocess.check_output(
         ['ssh', '-i', fw_key, 'manage_internet@mt', fw_cmd], stderr=subprocess.STDOUT
-    ).decode('utf-8')
+    )
     with daemon.DaemonContext():
         wait_to_disable(cfg.how_long)
 

@@ -194,8 +194,6 @@ class NWN(RunFromImage):
 
 class Torment(RunFromImage):
     def __init__(self, *args, **kwargs):
-        documents = os.path.expanduser('~/Documents')
-        my_documents = f'{documents}/Nicola'
         self.data_dmg = os.path.expanduser('~/Documents/Nicola/TConfig.sparseimage')
         self.data_dir = os.path.expanduser('~/Documents/Nicola/MacData')
         self.data_link = os.path.expanduser('~/Documents/Planescape Torment - Enhanced Edition')

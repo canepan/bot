@@ -3,7 +3,6 @@ import argparse
 import os
 import re
 import sys
-import tempfile
 from datetime import datetime
 
 
@@ -22,14 +21,13 @@ def main(argv: list = sys.argv[1:]):
     cfg = parse_args(argv)
     curr_breaches = []
     with open(cfg.whitelist_file, 'r') as whitelists:
-        whitelist_regex = re.compile('|'.join([l.strip() for l in whitelists.readlines() if l.strip()]))
+        whitelist_regex = re.compile('|'.join([ln.strip() for ln in whitelists.readlines() if ln.strip()]))
     with open(cfg.log_file, 'r') as log:
         for line in log:
             if any([ip in line for ip in cfg.client_ips]):
                 if '/200 ' in line and not line.startswith('#') and not re.search(whitelist_regex, line):
                     split_line = line.split()
                     # 6: site_url
-                    fqdn = re.search(r'(http://)?\([a-zA-Z\.0-9]]*\)[:/]', split_line[6])
                     # pline = ' '.join([str(datetime.utcfromtimestamp(float(split_line[0])))] + split_line[1:])
                     # print(pline.strip())
                     curr_breaches.append('{} {}'.format(datetime.utcfromtimestamp(float(split_line[0])), split_line[6]))

@@ -1,6 +1,4 @@
 #!/mnt/opt/nicola/tools/bin/python
-import argparse
-import os
 import socket
 import subprocess
 import sys

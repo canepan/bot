@@ -4,7 +4,8 @@ config = {
         (
             "root@phoenix",
             r"grep -q '[^#].*192\.168\.19\.100' /etc/iptables/rules.v4 && "
-            r"(sed -i 's/^[^#].*192\.168\.19\.100/#\0/' /etc/iptables/rules.v4 && /etc/init.d/netfilter-persistent reload) "
+            r"(sed -i 's/^[^#].*192\.168\.19\.100/#\0/' /etc/iptables/rules.v4 && "
+            r"/etc/init.d/netfilter-persistent reload) "
             "; /usr/local/bin/e2_video.sh disable ; "
             "/usr/local/bin/manage_discord.py disable && /etc/init.d/e2guardian restart",
         ),

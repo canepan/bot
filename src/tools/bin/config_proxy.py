@@ -1,10 +1,8 @@
 #!/mnt/opt/nicola/tools/bin/python3
 import attr
 import argparse
-import json
 import logging
 import os
-import re
 import sys
 from datetime import datetime
 from functools import lru_cache
@@ -137,7 +135,8 @@ acl {
 
         default {
                 pass     local none
-                redirect http://Sito_Vietato_O_Fuori_Orario_clientaddr=%a_clientname=%n_clientuser=%i_clientgroup=%s_targetgroup=%t_url=%u
+                redirect http://Sito_Vietato_O_Fuori_Orario'''
+    FILE_FOOTER += '''_clientaddr=%a_clientname=%n_clientuser=%i_clientgroup=%s_targetgroup=%t_url=%u
         }
 }
 '''

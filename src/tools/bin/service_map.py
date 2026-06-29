@@ -178,7 +178,8 @@ class ServiceCatalog(object):
                 self.service_configs[host] = ServiceConfig(host, service_name)
         for host in hosts[1:]:
             if self.service_configs[host][filename] != self.service_configs[hosts[0]][filename]:
-                self.log.debug(CompareContents(self.service_configs[host][filename], self.service_configs[hosts[0]][filename]))
+                self.log.debug(CompareContents(
+                    self.service_configs[host][filename], self.service_configs[hosts[0]][filename]))
                 return True
         return False
 
@@ -198,7 +199,8 @@ class ServiceCatalog(object):
             elif os.path.isfile(service_config):
                 return self.file_differs(service_config, hosts, service_name)
         except Exception as e:
-            self.log.debug(f'Exception while comparing configs on {hosts} for {service_name} (no config file defined?): {e}')
+            self.log.debug(
+                f'Exception while comparing configs on {hosts} for {service_name} (no config file defined?): {e}')
             return False
 
 

@@ -80,6 +80,7 @@ exclude = '''
   | buck-out
   | build
   | dist
+  | test/bats
 )
 '''
 
@@ -120,6 +121,7 @@ omit = [
 [tool.flake8]
 max-complexity = 16
 max-line-length = 120
+extend-exclude = "test/bats"
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -127,6 +129,7 @@ show_column_numbers = true
 show_error_context = false
 strict_optional = false
 follow_imports = "skip"
+exclude = "test/bats/"
 
 [tool.distutils.egg_info]
 # This configuration will make the egg-info directory appear in your package's build directory instead of src/

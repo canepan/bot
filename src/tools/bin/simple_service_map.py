@@ -23,6 +23,7 @@ KA_CONFIG_DIR = "/etc/keepalived"
 KA_CHECKS_DIR = os.path.join(KA_CONFIG_DIR, "bin")
 LOCAL_SUBNET_TEMPLATE = "192.168.19.{}/24"
 
+
 def remote_command(host: str, cmd: list) -> str:
     return _remote_command(host, " ".join(cmd))
 
@@ -139,7 +140,7 @@ class Host(object):
                 ip_if_not_local(self.name),
                 ["killall", "-USR1", "keepalived", ";", "cat /tmp/keepalived.data"]
             )
-        except CalledProcessError as e:
+        except CalledProcessError:
             ka_statuses = ""
         keys = (
             "Virtual Router ID",
@@ -308,7 +309,7 @@ class Service(object):
                 raise DecodeFirstLineException(f'Error while decoding {self.filename} ("{first_line}")') from e
             next_is_ip = False
             # cl contains the line with "#" comments removed and no leading/trailing spaces
-            for line in [cl for l in f if (cl := l.split("#")[0].strip())]:
+            for line in [cl for ln in f if (cl := ln.split("#")[0].strip())]:
                 if next_is_ip:
                     full_config["ip"] = line.split()[0].strip('"')
                     next_is_ip = False
@@ -460,7 +461,7 @@ class HostChecker(object):
 
 
 @click.command()
-@click.argument("hostnames", nargs=-1) #, type=set)
+@click.argument("hostnames", nargs=-1)  # , type=set)
 @click.option("--by-service", "-s", default=False, is_flag=True)
 @click.option("--no-parallel", "-n", default=False, is_flag=True)
 @click.option("--query-daemon", "-D", default=False, is_flag=True, help="Root only")
@@ -498,8 +499,3 @@ def main(hostnames: set, no_parallel: bool, by_service: bool, query_daemon: bool
 
 if __name__ == "__main__":
     main()
-#!/usr/bin/env python3
-import json
-import logging
-import os
-import re

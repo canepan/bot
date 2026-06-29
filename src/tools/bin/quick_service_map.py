@@ -1,5 +1,4 @@
 #!/mnt/opt/nicola/tools/bin/python
-import json
 import os
 from glob import glob
 from subprocess import check_output
@@ -14,7 +13,7 @@ def get_ip_map():
     cmd = ["ip", "-4", "-o", "ad", "sh", "dev", "eth0"]
     local_lines = check_output(cmd, universal_newlines=True).splitlines()
     hostname = os.uname().nodename
-    lines.extend(f"{hostname}: {l}" for l in local_lines)
+    lines.extend(f"{hostname}: {ln}" for ln in local_lines)
 
     for line in lines:
         if not line:
@@ -53,4 +52,3 @@ echo "${ips}"
 
 exit 0
 """
-

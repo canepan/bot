@@ -1,4 +1,3 @@
-import json
 import socket
 import subprocess
 import typing
@@ -43,7 +42,6 @@ class ArpMapRecord(object):
         fqdn, ip, _, mac, remainder = line.split(maxsplit=4)
         ip = ip[1:-1]
         interface = remainder.split()[-1]
-        name = fqdn if fqdn != "?" else ip
         known_hosts_styler = known_hosts_styler if known_hosts_styler is not None else lambda x: click.style(x, 'green')
         return cls(fqdn=fqdn, ip=ip, mac=mac, interface=interface, known_hosts_styler=known_hosts_styler)
 
@@ -77,7 +75,7 @@ class ArpMapRecords(object):
         return self._lines
 
     def __iter__(self) -> typing.Iterable[ArpMapRecord]:
-        for line in [l for l in self.lines if self.filter_interface is None or l.endswith(self.filter_interface)]:
+        for line in [ln for ln in self.lines if self.filter_interface is None or ln.endswith(self.filter_interface)]:
             record = ArpMapRecord.from_line(line, **self.kwargs)
             if record.is_valid():
                 yield record

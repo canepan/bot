@@ -5,7 +5,6 @@ import os
 import re
 import sys
 import time
-from datetime import datetime
 from urllib import request
 
 from ..libs.parse_args import with_quiet_verbose

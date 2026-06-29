@@ -10,7 +10,7 @@ from functools import lru_cache
 from subprocess import run, PIPE
 from difflib import unified_diff
 
-from tools.libs.net_utils import dns, HOSTS, hosts_from_dns
+from tools.libs.net_utils import hosts_from_dns
 
 try:
     from tools.libs.parse_args import LoggingArgumentParser
@@ -40,21 +40,30 @@ class CommandRunner(object):
         self.verbose = verbose
 
     def run_remote_command(self, host: str) -> (str, str, str, int):
-        ssh_options = ['-o', 'StrictHostKeyChecking false', '-o', 'ConnectTimeout 5', '-o', 'BatchMode yes']
+        ssh_options = [
+            '-o', 'StrictHostKeyChecking false', '-o', 'ConnectTimeout 5', '-o', 'BatchMode yes'
+        ]
         if not self.verbose:
             ssh_options.append('-q')
         if self.command.startswith('diff '):
             file_name = os.path.abspath(self.command[len("diff "):])
-            result = run(['ssh'] + ssh_options + [host, f'stat -c "%y" "{file_name}" ; cat "{file_name}"'], stdout=PIPE, stderr=PIPE, universal_newlines=True)
+            result = run(
+                ['ssh'] + ssh_options + [host, f'stat -c "%y" "{file_name}" ; cat "{file_name}"'],
+                stdout=PIPE, stderr=PIPE, universal_newlines=True
+            )
             remote_content = result.stdout.splitlines()
             if remote_content:
                 with open(file_name, "r") as f:
                     local_content = f.read().splitlines()
                 from_file = file_name
-                from_date = datetime.datetime.fromtimestamp(os.path.getmtime(file_name), tz=datetime.timezone.utc).isoformat()
+                from_date = datetime.datetime.fromtimestamp(
+                    os.path.getmtime(file_name), tz=datetime.timezone.utc
+                ).isoformat()
                 to_file = f'{host}:{file_name}'
                 to_date = remote_content[0].replace(' ', 'T', 1)
-                result_diff = '\n'.join(unified_diff(local_content, remote_content[1:], from_file, to_file, from_date, to_date))
+                result_diff = '\n'.join(
+                    unified_diff(local_content, remote_content[1:], from_file, to_file, from_date, to_date)
+                )
             else:
                 result_diff = ''
             return (host, CommandResult(result_diff.rstrip('\n'), result.stderr.rstrip('\n'), result.returncode))

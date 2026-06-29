@@ -5,8 +5,10 @@ from collections import defaultdict
 import click
 import eyed3
 
+
 def neutralize(text: str) -> str:
     return text.lower().replace("_", " ").replace(".", " ").replace("'", "")
+
 
 @click.command()
 @click.argument("base_dir")
@@ -32,13 +34,16 @@ def main(base_dir: str, per_artist: bool, verbose: bool):
                     tags[artist][album].append(f"{num} {text}")
                 else:
                     tags[album][artist].append(f"{num} {text}")
-                if neutralize(curr_file.tag.title) not in neutralize(curr_file.path) or not curr_file.tag.album or not artist:
+                if (neutralize(curr_file.tag.title) not in neutralize(curr_file.path)
+                        or not curr_file.tag.album or not artist):
                     broken_files.append(curr_file)
     click.echo(json.dumps(tags, indent=2, ensure_ascii=False))
     if broken_files:
         click.echo("Broken:")
     for broken in broken_files:
-        click.echo(f"{broken.path} - {broken.tag.title} ({broken.tag.album_artist or broken.tag.artist}, {broken.tag.album})")
+        click.echo(
+            f"{broken.path} - {broken.tag.title}"
+            f" ({broken.tag.album_artist or broken.tag.artist}, {broken.tag.album})")
 
 
 if __name__ == "__main__":

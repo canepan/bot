@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-from subprocess import check_output, CalledProcessError, STDOUT
+from subprocess import check_output, STDOUT
 
-import attr
 import click
 
 from tools.bin.simple_service_map import HostChecker

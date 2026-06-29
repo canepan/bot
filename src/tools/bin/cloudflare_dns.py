@@ -119,7 +119,6 @@ def update(ctx, ip_address: str, fqdns: typing.Iterable[str], all_records: bool,
     if all_records:
         url = ctx.obj['base_url']
         response = requests.get(url, headers=headers).json()
-        zones = defaultdict(list)
         for record in response["result"]:
             if record["comment"] == "Donomore":
                 echo.debug(f"Adding {record['name']}")

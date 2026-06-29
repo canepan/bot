@@ -131,7 +131,7 @@ class KeepalivedService(object):
 @click.option("--service", "-s", default="bind9")
 @click.option("--verbose/--quiet", "-v/-q", default=None)
 @click.pass_context
-def main(ctx: click.Context, service:str, verbose: bool):
+def main(ctx: click.Context, service: str, verbose: bool):
     ctx.ensure_object(dict)
     ctx.obj["kaservice"] = ServiceCatalog.get_service(service)
     logging.basicConfig()

@@ -33,4 +33,3 @@ class Xymon(object):
             text = f"status{duration} {self.host}.{self.check_name} {status.value} {time.asctime()}\n{message}"
             self._log.debug(f"Sending {status}: {message}\nfor {self.host} to {dest}")
             self._log.info(check_output(debug + ["xymon", dest, text]))
-

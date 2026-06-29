@@ -68,7 +68,6 @@ class ProcessDict(ItemProcessor):
 
     def new_lines(self):
         lines = []
-        result_dict = {}
         for k, v in self.ldap_data.items():
             pv = LdapBrowser.printable(v, indent=self.indent + 1)
             if pv and (self.verbose or k != 'krbExtraData'):
@@ -234,8 +233,8 @@ def main(argv=sys.argv[1:]):
         search_args = {'filterstr': 'olcAccess=*', 'attrlist': ['olcAccess']}
     else:
         search_args = {'filterstr': cfg.filterstr, 'attrlist': cfg.ldap_attrs}
-    l = LdapBrowser(**args)
-    cfg.log.info(l.printable(l.search(**search_args), as_json=cfg.json))
+    browser = LdapBrowser(**args)
+    cfg.log.info(browser.printable(browser.search(**search_args), as_json=cfg.json))
     return 0
 
 

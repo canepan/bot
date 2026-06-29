@@ -2,7 +2,6 @@
 import attr
 import logging
 import os
-import stat
 import sys
 from argparse import Namespace
 from difflib import unified_diff
@@ -24,7 +23,8 @@ TEMPLATE_POST = '''
     </center>
   </body>
 </html>'''
-TEMPLATE_LINE = '      <a href="{season}/" title="{episodes} episodi"><img src="season{season}-poster.jpg" height="300" /></a>'
+TEMPLATE_LINE = ('      <a href="{season}/" title="{episodes} episodi">'
+                 '<img src="season{season}-poster.jpg" height="300" /></a>')
 
 
 def parse_args(argv: list) -> Namespace:
@@ -65,13 +65,15 @@ class HtmlSeries(object):
 
     def episodes_in(self, subdir: str) -> int:
         season_dir = os.path.join(self.series_dir, subdir)
-        return len(glob(os.path.join(season_dir, '*.avi')) + glob(os.path.join(season_dir, '*.mkv')) + glob(os.path.join(season_dir, '*.mp4')))
+        return len(glob(os.path.join(season_dir, '*.avi'))
+                   + glob(os.path.join(season_dir, '*.mkv'))
+                   + glob(os.path.join(season_dir, '*.mp4')))
 
     @property
     def seasons(self):
         if self._seasons is None:
             self._seasons = dict()
-            for _ , season_dirs, _ in os.walk(self.series_dir):
+            for _, season_dirs, _ in os.walk(self.series_dir):
                 self.log.debug(f'Found {season_dirs}')
                 self._seasons.update({s: self.episodes_in(s) for s in season_dirs if self.check_season(s)})
                 # self._seasons.sort(key=int)
