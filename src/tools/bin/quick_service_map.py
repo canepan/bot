@@ -8,10 +8,10 @@ from tools.bin.simple_service_map import Service
 
 def get_ip_map():
     ip_map = {}
-    cmd = ["all.py", "ip -4 -o ad sh"]
-    lines = check_output(cmd, universal_newlines=True).splitlines()
-    cmd = ["ip", "-4", "-o", "ad", "sh", "dev", "eth0"]
+    cmd = ["ip", "-4", "-o", "ad", "sh"]
     local_lines = check_output(cmd, universal_newlines=True).splitlines()
+    cmd = ["all.py", " ".join(cmd)]
+    lines = check_output(cmd, universal_newlines=True).splitlines()
     hostname = os.uname().nodename
     lines.extend(f"{hostname}: {ln}" for ln in local_lines)
 
