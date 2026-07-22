@@ -28,6 +28,10 @@ Currently supports (Mac only):
 * Diablo III
 * Docker
 
+## prenotami-auto
+Login and fill the form to reserve a passport appointment at the Dublin italian embassy.
+Uses `.env` file (`.env.example` provided) or env vars for input
+
 ## qsm
 Quick service map: reads keepalived conf, report services location based on active IPs
 
