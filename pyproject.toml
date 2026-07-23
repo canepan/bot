@@ -37,6 +37,7 @@ license = "MIT"
 
 [project.optional-dependencies]
 ldap = [ "python-ldap" ]
+mac = [ "rumps" ]
 
 [project.scripts]
 "all.py" = "tools.bin.all:main"
@@ -50,6 +51,7 @@ html-series = "tools.bin.html_series:main"
 id3-checker = "tools.bin.id3checker:main"
 ka-status = "tools.bin.keepalived_status:main"
 ldap_browse = "tools.bin.ldap_browser:main [ldap]"
+net-watch = "tools.bin.net_watch:main [mac]"
 openvpn-log = "tools.bin.openvpn_log:main"
 prenotami-auto = "tools.bin.prenotami_auto:main"
 qsm = "tools.bin.quick_service_map:main"
