@@ -39,7 +39,7 @@ license = "MIT"
 ldap = [ "python-ldap" ]
 mac = [ "rumps" ]
 media = [ "Pillow" ]
-all = [ "python-ldap", "rumps", "Pillow" ]
+all = [ "python-ldap", "Pillow" ]
 
 [project.scripts]
 "all.py" = "tools.bin.all:main"
