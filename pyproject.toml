@@ -38,6 +38,8 @@ license = "MIT"
 [project.optional-dependencies]
 ldap = [ "python-ldap" ]
 mac = [ "rumps" ]
+media = [ "Pillow" ]
+all = [ "python-ldap", "rumps", "Pillow" ]
 
 [project.scripts]
 "all.py" = "tools.bin.all:main"
@@ -49,6 +51,7 @@ config_proxy = "tools.bin.config_proxy:main"
 "freedns.py" = "tools.bin.freedns:main"
 html-series = "tools.bin.html_series:main"
 id3-checker = "tools.bin.id3checker:main"
+inky-images = "tools.bin.inky_images:app"
 ka-status = "tools.bin.keepalived_status:main"
 ldap_browse = "tools.bin.ldap_browser:main [ldap]"
 net-watch = "tools.bin.net_watch:main [mac]"
