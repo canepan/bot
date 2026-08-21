@@ -51,12 +51,13 @@ def app(input_dirs: list[str], output_dir: Path, dry_run: bool, extensions: tupl
             with open(file_path, 'r') as f:
                 input_dirs_list.update(Path(line.strip()) for line in f if line.strip() and not line.startswith('#'))
         else:
-            input_dirs_list.add(Path(input_param))
+            input_dirs_list.add(Path(input_dir))
 
     for input_dir in input_dirs_list:
         for file_path in [fp for fp in input_dir.iterdir() if is_valid(fp, extensions)]:
             choices.append(file_path)
     convert(random.choices(choices, k=4))
+    Path("index.html").open("w").write(create_html_index())
 
 
 def needs_rotate(screen_ratio, image_ratio) -> bool:
@@ -104,6 +105,38 @@ def convert(input_files: list):
             Path(f"{file_name}.txt").write_text(title)
 
 
+def create_html_index(img_dir="."):
+    """
+    Create an HTML index for the indexed images.
+
+    Returns:
+        str: HTML content as a string.
+    """
+    html = "<html><body><h1>Indexed Images</h1>"
+
+    # List of files and their corresponding paths
+    file_list = []
+    for root, dirs, files in Path(img_dir).walk():
+        for file in files:
+            if file.endswith(('.png', '.jpg', '.jpeg')):
+                file_path = os.path.join(root, file)
+                # resized_path = resize_image(file_path)
+                # file_list.append((file_path, resized_path))
+                file_list.append((file_path, file_path))
+
+    # Sort the list by file size (largest first)
+    file_list.sort(key=lambda x: os.path.getsize(x[1]), reverse=True)
+
+    # Create HTML content
+    for i, (file_path, resized_path) in enumerate(file_list):
+        html += f"<p><img src='{resized_path}' width='50%' height='auto'></p>"
+
+    # Close the HTML body and document
+    html += "</body></html>"
+
+    return html
+
+
 if __name__ == "__main__":
-    main()
+    app()
 
