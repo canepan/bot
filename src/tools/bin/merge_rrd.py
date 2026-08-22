@@ -33,6 +33,11 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
+# Force a locale with '.' as decimal separator for all child processes:
+# rrdtool info/dump/create otherwise format and parse numbers using the
+# host locale (e.g. "5,0000000000e-01"), breaking round-tripping.
+os.environ['LC_ALL'] = 'C'
+
 # The temp RRD's heartbeat is relaxed by this factor so that update
 # intervals with a little jitter (e.g. 601s vs a 600s heartbeat) are not
 # discarded as unknown.  This only affects the backfill conversion: the
