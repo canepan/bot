@@ -25,7 +25,7 @@ to the running keepalived first, so the dump is regenerated before it is read
 Dependencies: click, rich.
 """
 
-import json as _json
+import json
 import os
 import re
 import signal
@@ -594,7 +594,7 @@ def refresh_data_file(path: str, wait: float = 2.0) -> bool:
                 return True
         except OSError:
             pass
-        time.sleep(0.1)
+        time.sleep(0.2)
     console.print(f"[yellow]Signalled keepalived (pid {pid}); {path} did not update within {wait:g}s.[/]")
     return True
 
@@ -648,7 +648,7 @@ def main(data_file: str, as_json: bool, no_resolve: bool, simple: bool, do_signa
     resolver = make_resolver(enabled=not no_resolve)
 
     if as_json:
-        click.echo(_json.dumps(_to_jsonable(instances, resolver), indent=2))
+        click.echo(json.dumps(_to_jsonable(instances, resolver), indent=2))
     elif simple:
         render_simple(instances, resolver, load_candidate_hosts())
     else:
