@@ -1,0 +1,63 @@
+<mxfile host="app.diagrams.net" agent="kiro" version="24.0.0">
+  <diagram name="Home Network" id="home-net-topology">
+    <mxGraphModel dx="1100" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Internet clouds -->
+        <mxCell id="inet_v" value="Internet — Virgin fibre&#10;edge 89.100.167.1&#10;backbone 84.116.x" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="20" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="inet_c" value="Internet — Cellular&#10;(iPhone carrier)" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="540" y="20" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Modem / iPhone -->
+        <mxCell id="hub" value="Virgin Hub 5x&#10;Sagemcom F5685LGB (XGS-PON ~500/50)&#10;LAN 192.168.0.1 · router mode + DMZ→MegaTik" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="60" y="170" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="iphone" value="iPhone hotspot 'iPhoneTeen'&#10;GW 172.20.10.1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="540" y="170" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Routers -->
+        <mxCell id="mega" value="MegaTik  (.2)&#10;L009UiGS · RouterOS 7.19&#10;VRRP master (pri 200)&#10;NAT→Virgin · SQM upload CAKE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="60" y="320" width="260" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="mikro" value="MikroTik  (.3)&#10;RB951G-2HnD · RouterOS 7.18&#10;VRRP backup (pri 100)&#10;wlan1 station→iPhone (backup WAN)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="480" y="320" width="270" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- VRRP gateway -->
+        <mxCell id="vrrp" value="VRRP virtual gateway&#10;192.168.19.1 (VRID 1, MAC 00:00:5e:00:01:01)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="270" y="470" width="290" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- LAN container -->
+        <mxCell id="lanbox" value="LAN  192.168.19.0/24" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#666666;verticalAlign=top;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="60" y="580" width="690" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ampli" value="AmpliFi mesh x2&#10;SSID 'Nicola' (ch1 + ch11)&#10;bridge mode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="lanbox">
+          <mxGeometry x="20" y="35" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="phoenix" value="phoenix&#10;Xymon + SmokePing + rsyslog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="lanbox">
+          <mxGeometry x="245" y="35" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="clients" value="Clients&#10;(wired + Wi-Fi)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="lanbox">
+          <mxGeometry x="470" y="35" width="190" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;" edge="1" parent="1" source="inet_v" target="hub"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;dashed=1;" edge="1" parent="1" source="inet_c" target="iphone"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e3" value="192.168.0.0/24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;" edge="1" parent="1" source="hub" target="mega"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e4" value="ether8 ↔ ether3&#10;(carries 192.168.0.0/24)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;startArrow=none;endArrow=none;" edge="1" parent="1" source="mega" target="mikro"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e5" value="wlan1 station&#10;172.20.10.0/28 (BACKUP)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;dashed=1;strokeColor=#b85450;" edge="1" parent="1" source="iphone" target="mikro"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;" edge="1" parent="1" source="mega" target="vrrp"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;" edge="1" parent="1" source="mikro" target="vrrp"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=none;" edge="1" parent="1" source="vrrp" target="lanbox"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
