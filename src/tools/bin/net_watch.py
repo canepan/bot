@@ -7,7 +7,9 @@ optional notification) when it stops answering. The menu also shows failure stat
 
 By default it runs as a daemon (detached from the terminal, logging to
 ~/Library/Logs/net_watch.log); use --foreground to keep it attached, --kill to
-stop the running instance.
+stop the running instance. With --install it is set up as a launchd LaunchAgent
+instead (supervised, restarted on crash, started at login); --uninstall removes
+the agent.
 
 Options can be set in ~/.config/net_watch.cfg (or a file passed with -c), e.g.:
     [net-watch]
@@ -23,6 +25,7 @@ import atexit
 import configparser
 import logging
 import os
+import plistlib
 import signal
 import subprocess
 import sys
@@ -38,9 +41,11 @@ except ModuleNotFoundError:  # not on macOS, or extra not installed
     rumps = None
 
 APP_NAME = 'net-watch'
+LABEL = f'local.{APP_NAME}'
 DEFAULT_CONFIG = Path('~', '.config', 'net_watch.cfg')
 LOG_FILE = Path('~', 'Library', 'Logs', 'net_watch.log')
 PID_FILE = Path('~', 'Library', 'Caches', 'net_watch.pid')
+AGENT_PLIST = Path('~', 'Library', 'LaunchAgents', f'{LABEL}.plist')
 OK_ICON = '\U0001f7e2'  # green circle
 DOWN_ICON = '\U0001f534'  # red circle
 _log = logging.getLogger(APP_NAME)
@@ -181,6 +186,12 @@ def run_app(host: str, interval: int, timeout: int, failures: int, notifications
     app.run()
 
 
+def relaunch_command() -> typing.List[str]:
+    """The current command relaunched through the interpreter, in foreground mode."""
+    skip = {'--install', '--uninstall', '--foreground'}
+    return [sys.executable] + [arg for arg in sys.argv if arg not in skip] + ['--foreground']
+
+
 def daemonize() -> None:
     """Relaunch the same command detached from the terminal, with --foreground.
 
@@ -191,13 +202,48 @@ def daemonize() -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open('a') as log_file:
         process = subprocess.Popen(
-            sys.argv + ['--foreground'],
+            relaunch_command(),
             stdin=subprocess.DEVNULL,
             stdout=log_file,
             stderr=log_file,
             start_new_session=True,
         )
     click.echo(f'Started in background (pid {process.pid}), logging to {log_path}')
+
+
+def install_agent() -> None:
+    """Install and start a launchd LaunchAgent running this command."""
+    log_path = LOG_FILE.expanduser()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    plist_path = AGENT_PLIST.expanduser()
+    plist_path.parent.mkdir(parents=True, exist_ok=True)
+    plist = {
+        'Label': LABEL,
+        'ProgramArguments': relaunch_command(),
+        'RunAtLoad': True,
+        'KeepAlive': True,
+        'StandardOutPath': str(log_path),
+        'StandardErrorPath': str(log_path),
+    }
+    with plist_path.open('wb') as plist_file:
+        plistlib.dump(plist, plist_file)
+    domain = f'gui/{os.getuid()}'
+    subprocess.run(['launchctl', 'bootout', f'{domain}/{LABEL}'], stderr=subprocess.DEVNULL)  # reload if loaded
+    result = subprocess.run(['launchctl', 'bootstrap', domain, str(plist_path)])
+    if result.returncode != 0:
+        raise click.ClickException(f'launchctl bootstrap failed (rc {result.returncode})')
+    click.echo(f'Installed and started LaunchAgent {LABEL} ({plist_path})')
+
+
+def uninstall_agent() -> None:
+    """Stop and remove the launchd LaunchAgent."""
+    plist_path = AGENT_PLIST.expanduser()
+    subprocess.run(['launchctl', 'bootout', f'gui/{os.getuid()}/{LABEL}'], stderr=subprocess.DEVNULL)
+    if plist_path.exists():
+        plist_path.unlink()
+        click.echo(f'Uninstalled LaunchAgent {LABEL}')
+    else:
+        click.echo(f'No LaunchAgent installed ({plist_path} not found)')
 
 
 def load_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
@@ -230,16 +276,31 @@ def load_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
 @click.option('--notifications/--no-notifications', default=True, show_default=True, help='Notify on state change')
 @click.option('-F', '--foreground', is_flag=True, help='Stay attached to the terminal (default: run as daemon)')
 @click.option('--kill', is_flag=True, help='Stop the running instance and exit')
+@click.option('--install', is_flag=True, help='Install and start as a launchd LaunchAgent (supervised, runs at login)')
+@click.option('--uninstall', is_flag=True, help='Stop and remove the launchd LaunchAgent')
 def main(
-    host: str, interval: int, timeout: int, failures: int, notifications: bool, foreground: bool, kill: bool
+    host: str,
+    interval: int,
+    timeout: int,
+    failures: int,
+    notifications: bool,
+    foreground: bool,
+    kill: bool,
+    install: bool,
+    uninstall: bool,
 ) -> None:
     """Show a menu bar icon reporting whether HOST answers to ping/HTTP (macOS only)."""
     if kill:
         kill_running()
         return
+    if uninstall:
+        uninstall_agent()
+        return
     if rumps is None:
         raise click.ClickException('rumps is required (macOS only): pip install rumps')
-    if foreground:
+    if install:
+        install_agent()
+    elif foreground:
         logging.basicConfig(level=logging.INFO)
         run_app(host, interval, timeout, failures, notifications)
     else:

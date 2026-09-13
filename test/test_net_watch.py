@@ -1,3 +1,4 @@
+import plistlib
 from pathlib import Path
 from unittest import mock
 
@@ -165,7 +166,9 @@ def test_main_missing_config_uses_defaults(mock_rumps, mock_run_app, runner, tmp
 def test_main_daemonizes_by_default(mock_rumps, mock_popen, runner, tmp_path):
     result = runner.invoke(net_watch.main, ['-c', str(tmp_path / 'missing.cfg')])
     assert result.exit_code == 0, result.output
-    assert mock_popen.call_args[0][0][-1] == '--foreground'
+    cmd = mock_popen.call_args[0][0]
+    assert cmd[0] == net_watch.sys.executable  # argv[0] may not be executable (e.g. `python script.py`)
+    assert cmd[-1] == '--foreground'
     assert 'pid 42' in result.output
 
 
@@ -199,3 +202,54 @@ def test_run_app_writes_pid_file(mock_rumps, mock_requests_get, pid_file):
     assert pid_file.read_text() == str(net_watch.os.getpid())
     assert mock_rumps.Timer.call_args[0][1] == 5
     mock_rumps.App.return_value.run.assert_called_once_with()
+
+
+@pytest.fixture
+def agent_plist(monkeypatch, tmp_path) -> Path:
+    path = tmp_path / 'local.net-watch.plist'
+    monkeypatch.setattr('tools.bin.net_watch.AGENT_PLIST', path)
+    monkeypatch.setattr('tools.bin.net_watch.LOG_FILE', tmp_path / 'net_watch.log')
+    return path
+
+
+def test_relaunch_command_strips_install_flags(monkeypatch):
+    monkeypatch.setattr('tools.bin.net_watch.sys.argv', ['net-watch', '-H', 'h', '--install'])
+    cmd = net_watch.relaunch_command()
+    assert cmd == [net_watch.sys.executable, 'net-watch', '-H', 'h', '--foreground']
+
+
+def test_main_install(mock_rumps, mock_run, agent_plist, runner, tmp_path):
+    result = runner.invoke(net_watch.main, ['-c', str(tmp_path / 'missing.cfg'), '--install'])
+    assert result.exit_code == 0, result.output
+    with agent_plist.open('rb') as plist_file:
+        plist = plistlib.load(plist_file)
+    assert plist['Label'] == 'local.net-watch'
+    assert plist['ProgramArguments'][0] == net_watch.sys.executable
+    assert plist['ProgramArguments'][-1] == '--foreground'
+    assert plist['KeepAlive'] is True
+    launchctl_calls = [call[0][0] for call in mock_run.call_args_list]
+    assert launchctl_calls[0][:2] == ['launchctl', 'bootout']
+    assert launchctl_calls[1][:2] == ['launchctl', 'bootstrap']
+    assert 'Installed and started' in result.output
+
+
+def test_main_install_bootstrap_failure(mock_rumps, mock_run, agent_plist, runner, tmp_path):
+    mock_run.return_value = mock.Mock(returncode=1)
+    result = runner.invoke(net_watch.main, ['-c', str(tmp_path / 'missing.cfg'), '--install'])
+    assert result.exit_code != 0
+    assert 'bootstrap failed' in result.output
+
+
+def test_main_uninstall(no_rumps, mock_run, agent_plist, runner, tmp_path):
+    agent_plist.write_text('plist')
+    result = runner.invoke(net_watch.main, ['-c', str(tmp_path / 'missing.cfg'), '--uninstall'])
+    assert result.exit_code == 0, result.output
+    assert not agent_plist.exists()
+    assert mock_run.call_args[0][0][:2] == ['launchctl', 'bootout']
+    assert 'Uninstalled' in result.output
+
+
+def test_main_uninstall_not_installed(no_rumps, mock_run, agent_plist, runner, tmp_path):
+    result = runner.invoke(net_watch.main, ['-c', str(tmp_path / 'missing.cfg'), '--uninstall'])
+    assert result.exit_code == 0, result.output
+    assert 'No LaunchAgent installed' in result.output
