@@ -10,6 +10,8 @@
   `try: import x / except ModuleNotFoundError: x = None` so tests run everywhere.
 
 ## Coding
+- All imports go at the top of the file — never import in the middle of a file
+  (not even in test bodies); optional dependencies use the try/except pattern above.
 - Prefer `click` for new CLIs (some older tools use ConfigArgParse or typer).
 - New CLIs should support a config file: add an eager `-c/--config` option whose
   callback loads an INI file (section named after the app) into `ctx.default_map`,
