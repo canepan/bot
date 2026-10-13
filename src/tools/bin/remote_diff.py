@@ -35,16 +35,23 @@ def cat_cmd(pathspec: str, file_name: str) -> list:
 @click.option("--verbose/--quiet", "-v/-q", default=None)
 def main(source: str, destination: str, verbose: bool):
     output = check_output(["rsync", "-rtni", source, destination], universal_newlines=True)
-    if matches := re.findall(r"(^([<>c*].c|[<>c*]..s)|(\+\+\+)).*\s([\w/.]+)$", output, re.M):
+    if matches := re.findall(r"(^([<>c*].c|[<>c*]..s|.f\+\+\+)).*\s([\w/.]+)$", output, re.M):
         click.echo(output)
         click.echo(HELP)
         if verbose:
             for match in matches:
-                s_content = check_output(cat_cmd(source, match[3]), universal_newlines=True)
-                d_content = check_output(cat_cmd(destination, match[3]), universal_newlines=True)
+                s_content = d_content = None
+                if "+++" in match[1]:
+                    if match[1][0] == "<":
+                        d_content = " "
+                    if match[1][0] == ">":
+                        s_content = " "
+                fname = match[2]
+                s_content = s_content or check_output(cat_cmd(source, fname), universal_newlines=True)
+                d_content = d_content or check_output(cat_cmd(destination, fname), universal_newlines=True)
                 for diff_line in unified_diff(
                         s_content.splitlines(), d_content.splitlines(),
-                        os.path.join(source, match[3]), os.path.join(destination, match[3])):
+                        os.path.join(source, fname), os.path.join(destination, fname)):
                     click.echo(diff_line)
 
 
