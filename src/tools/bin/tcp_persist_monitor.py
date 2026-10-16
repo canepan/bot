@@ -1,3 +1,4 @@
+#!/mnt/opt/nicola/tools/bin/python
 """Detect TCP disconnections between the LAN and the internet.
 
 Holds a single persistent keep-alive TLS connection to a target (by default
@@ -12,6 +13,11 @@ the router (NAT loopback) and never traverse the WAN. Routing through an
 external CONNECT proxy forces the persistent connection out over the WAN, so a
 drop reflects a real internet-path event.
 
+Optional pre/post hooks wrap the connection lifecycle: the pre-script runs
+before (re)connecting (e.g. bring a VPN up so the target is reachable from
+outside), the post-script runs after the connection is torn down and on exit
+(e.g. tear the VPN down). They are kept paired with the connection state.
+
 By default it runs detached (daemon), logging to
 ``~/.local/state/tcp_persist_monitor.log``; use ``--foreground`` to stay
 attached (e.g. under systemd), ``--kill`` to stop the running instance.
@@ -24,7 +30,11 @@ with ``-c``), e.g.::
     proxy_host = vps.example.net
     proxy_port = 8080
     heartbeat = 30
+    pre_script = wg-quick up wg0
+    post_script = wg-quick down wg0
 """
+
+from __future__ import annotations
 
 import atexit
 import base64
@@ -39,7 +49,6 @@ import ssl
 import subprocess
 import sys
 import time
-import typing
 from pathlib import Path
 
 import click
@@ -65,12 +74,15 @@ class MonitorConfig:
     target_host: str
     target_port: int
     path: str
-    proxy_host: typing.Optional[str]
+    proxy_host: str | None
     proxy_port: int
-    proxy_auth: typing.Optional[str]
+    proxy_auth: str | None
     heartbeat: int
     timeout: int
     reconnect_delay: int
+    pre_script: str | None
+    post_script: str | None
+    hook_timeout: int
     verify_tls: bool
     xymon: bool
     xymon_check: str
@@ -100,7 +112,7 @@ class ConnectionTracker:
     """
 
     def __init__(self) -> None:
-        self.is_up: typing.Optional[bool] = None
+        self.is_up: bool | None = None
         self.connects = 0
         self.disconnects = 0
 
@@ -127,7 +139,7 @@ def _ssl_context(cfg: MonitorConfig) -> ssl.SSLContext:
     return context
 
 
-def _proxy_headers(cfg: MonitorConfig) -> typing.Dict[str, str]:
+def _proxy_headers(cfg: MonitorConfig) -> dict[str, str]:
     if cfg.proxy_auth:
         token = base64.b64encode(cfg.proxy_auth.encode()).decode()
         return {'Proxy-Authorization': f'Basic {token}'}
@@ -138,7 +150,7 @@ def route_description(cfg: MonitorConfig) -> str:
     """Human-readable description of the path being monitored.
 
     >>> log = logging.getLogger('doctest')
-    >>> direct = MonitorConfig('h', 443, '/', None, 0, None, 30, 10, 2, True, False, 'c', False, log)
+    >>> direct = MonitorConfig('h', 443, '/', None, 0, None, 30, 10, 2, None, None, 30, True, False, 'c', False, log)
     >>> route_description(direct)
     'h:443'
     >>> viaproxy = dataclasses.replace(direct, proxy_host='px', proxy_port=8080)
@@ -187,7 +199,23 @@ def probe(conn: http.client.HTTPSConnection, cfg: MonitorConfig) -> int:
     return resp.status
 
 
-def _emit(cfg: MonitorConfig, status: 'XymonStatus', message: str) -> None:
+def run_hook(command: str | None, cfg: MonitorConfig, label: str) -> None:
+    """Run a pre/post shell hook (e.g. bring a VPN up/down); never raise."""
+    if not command:
+        return
+    cfg.log.info('Running %s hook: %s', label, command)
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=cfg.hook_timeout)
+    except Exception as e:
+        cfg.log.error('%s hook failed to run: %s', label, e)
+        return
+    if result.returncode != 0:
+        cfg.log.warning('%s hook exited %d: %s', label, result.returncode, result.stderr.strip())
+    elif result.stdout.strip():
+        cfg.log.debug('%s hook output: %s', label, result.stdout.strip())
+
+
+def _emit(cfg: MonitorConfig, status: XymonStatus, message: str) -> None:
     if status == XymonStatus.GREEN:
         cfg.log.info(message)
     else:
@@ -199,7 +227,7 @@ def _emit(cfg: MonitorConfig, status: 'XymonStatus', message: str) -> None:
             cfg.log.error('Xymon report failed: %s', e)
 
 
-def _close(conn: typing.Optional[http.client.HTTPSConnection]) -> None:
+def _close(conn: http.client.HTTPSConnection | None) -> None:
     if conn is not None:
         try:
             conn.close()
@@ -207,38 +235,55 @@ def _close(conn: typing.Optional[http.client.HTTPSConnection]) -> None:
             pass
 
 
-def run_monitor(cfg: MonitorConfig, iterations: typing.Optional[int] = None) -> ConnectionTracker:
+def run_monitor(cfg: MonitorConfig, iterations: int | None = None) -> ConnectionTracker:
     """Main loop: hold the connection, heartbeat, log/report every disconnect.
 
+    The pre-script runs before (re)connecting and the post-script after the
+    connection is torn down and on exit, kept paired with the connection state.
     ``iterations`` bounds the loop for testing (``None`` = run forever).
     """
     tracker = ConnectionTracker()
-    conn: typing.Optional[http.client.HTTPSConnection] = None
-    up_since: typing.Optional[float] = None
+    conn: http.client.HTTPSConnection | None = None
+    up_since: float | None = None
+    hooked_up = False
     count = 0
-    while iterations is None or count < iterations:
-        count += 1
-        try:
-            if conn is None:
-                conn = build_connection(cfg)
-            probe(conn, cfg)
-            if tracker.mark_up():
-                up_since = time.time()
-                _emit(cfg, XymonStatus.GREEN, f'connected {route_description(cfg)} (reconnects: {tracker.connects - 1})')
-            time.sleep(cfg.heartbeat)
-        except Exception as e:
-            duration = int(time.time() - up_since) if up_since else 0
-            if tracker.mark_down():
-                _emit(
-                    cfg,
-                    XymonStatus.RED,
-                    f'TCP DISCONNECT on {route_description(cfg)} after {duration}s up: '
-                    f'{type(e).__name__}: {e} (total disconnects: {tracker.disconnects})',
-                )
-            _close(conn)
-            conn = None
-            up_since = None
-            time.sleep(cfg.reconnect_delay)
+    try:
+        while iterations is None or count < iterations:
+            count += 1
+            try:
+                if conn is None:
+                    if not hooked_up:
+                        run_hook(cfg.pre_script, cfg, 'pre')
+                        hooked_up = True
+                    conn = build_connection(cfg)
+                probe(conn, cfg)
+                if tracker.mark_up():
+                    up_since = time.time()
+                    _emit(
+                        cfg,
+                        XymonStatus.GREEN,
+                        f'connected {route_description(cfg)} (reconnects: {tracker.connects - 1})',
+                    )
+                time.sleep(cfg.heartbeat)
+            except Exception as e:
+                duration = int(time.time() - up_since) if up_since else 0
+                if tracker.mark_down():
+                    _emit(
+                        cfg,
+                        XymonStatus.RED,
+                        f'TCP DISCONNECT on {route_description(cfg)} after {duration}s up: '
+                        f'{type(e).__name__}: {e} (total disconnects: {tracker.disconnects})',
+                    )
+                _close(conn)
+                conn = None
+                up_since = None
+                if hooked_up:
+                    run_hook(cfg.post_script, cfg, 'post')
+                    hooked_up = False
+                time.sleep(cfg.reconnect_delay)
+    finally:
+        if hooked_up:
+            run_hook(cfg.post_script, cfg, 'post')
     return tracker
 
 
@@ -269,7 +314,7 @@ def kill_running() -> None:
     click.echo(f'Stopped {APP_NAME} (pid {pid})')
 
 
-def relaunch_command() -> typing.List[str]:
+def relaunch_command() -> list[str]:
     """The current command relaunched through the interpreter, in foreground mode."""
     return [sys.executable] + list(sys.argv) + ['--foreground']
 
@@ -298,8 +343,14 @@ def load_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
 
 @click.command()
 @click.option(
-    '-c', '--config', default=str(DEFAULT_CONFIG), show_default=True, callback=load_config, is_eager=True,
-    expose_value=False, help='Config file (INI, [tcp-persist-monitor] section)'
+    '-c',
+    '--config',
+    default=str(DEFAULT_CONFIG),
+    show_default=True,
+    callback=load_config,
+    is_eager=True,
+    expose_value=False,
+    help='Config file (INI, [tcp-persist-monitor] section)',
 )
 @click.option('-H', '--target-host', default='www.nicolacanepa.net', show_default=True, help='Target host to reach')
 @click.option('-p', '--target-port', default=443, show_default=True, help='Target TCP port')
@@ -307,14 +358,30 @@ def load_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
 @click.option('-x', '--proxy-host', default=None, help='HTTP CONNECT proxy host (forces the connection over the WAN)')
 @click.option('-X', '--proxy-port', default=8080, show_default=True, help='HTTP CONNECT proxy port')
 @click.option('--proxy-auth', default=None, help='Proxy Basic auth as user:password')
-@click.option('-i', '--heartbeat', default=30, show_default=True, help='Seconds between heartbeats on the open connection')
+@click.option(
+    '-i', '--heartbeat', default=30, show_default=True, help='Seconds between heartbeats on the open connection'
+)
 @click.option('-t', '--timeout', default=10, show_default=True, help='Per-request timeout in seconds')
-@click.option('--reconnect-delay', default=2, show_default=True, help='Seconds to wait before reconnecting after a drop')
+@click.option(
+    '--reconnect-delay', default=2, show_default=True, help='Seconds to wait before reconnecting after a drop'
+)
+@click.option('--pre-script', default=None, help='Shell command to run before (re)connecting, e.g. bring a VPN up')
+@click.option(
+    '--post-script', default=None, help='Shell command to run after a disconnect/on exit, e.g. tear a VPN down'
+)
+@click.option('--hook-timeout', default=30, show_default=True, help='Timeout (seconds) for pre/post hook commands')
 @click.option('--verify/--no-verify', 'verify_tls', default=True, show_default=True, help='Verify the target TLS cert')
 @click.option('--xymon/--no-xymon', default=True, show_default=True, help='Report state transitions to Xymon')
 @click.option('--xymon-check', default='wantcp', show_default=True, help='Xymon column name')
 @click.option('--xymon-debug', is_flag=True, help='Echo Xymon messages instead of sending them')
-@click.option('-l', '--log-file', default=str(LOG_FILE), show_default=True, help='Evidence-trail log file')
+@click.option(
+    '-l',
+    '--log-file',
+    default=str(LOG_FILE),
+    show_default=True,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help='Evidence-trail log file',
+)
 @click.option('-v', '--verbose', is_flag=True, help='Verbose (debug) logging')
 @click.option('-q', '--quiet', is_flag=True, help='Quiet (errors only)')
 @click.option('-F', '--foreground', is_flag=True, help='Stay attached to the terminal (default: run as daemon)')
@@ -323,17 +390,20 @@ def main(
     target_host: str,
     target_port: int,
     path: str,
-    proxy_host: typing.Optional[str],
+    proxy_host: str | None,
     proxy_port: int,
-    proxy_auth: typing.Optional[str],
+    proxy_auth: str | None,
     heartbeat: int,
     timeout: int,
     reconnect_delay: int,
+    pre_script: str | None,
+    post_script: str | None,
+    hook_timeout: int,
     verify_tls: bool,
     xymon: bool,
     xymon_check: str,
     xymon_debug: bool,
-    log_file: str,
+    log_file: Path,
     verbose: bool,
     quiet: bool,
     foreground: bool,
@@ -346,7 +416,9 @@ def main(
     if not foreground:
         daemonize()
         return
-    log = get_logger(APP_NAME, verbose, quiet, with_file=str(Path(log_file).expanduser()))
+    log_path = log_file.expanduser()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log = get_logger(APP_NAME, verbose, quiet, with_file=str(log_path))
     cfg = MonitorConfig(
         target_host=target_host,
         target_port=int(target_port),
@@ -357,6 +429,9 @@ def main(
         heartbeat=int(heartbeat),
         timeout=int(timeout),
         reconnect_delay=int(reconnect_delay),
+        pre_script=pre_script,
+        post_script=post_script,
+        hook_timeout=int(hook_timeout),
         verify_tls=verify_tls,
         xymon=xymon,
         xymon_check=xymon_check,
@@ -364,8 +439,11 @@ def main(
         log=log,
     )
     write_pid_file()
-    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
-    log.info('Monitoring %s (heartbeat %ss) -> evidence in %s', route_description(cfg), cfg.heartbeat, log_file)
+    try:
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    except ValueError:  # not on the main thread (e.g. under a test runner)
+        pass
+    log.info('Monitoring %s (heartbeat %ss) -> evidence in %s', route_description(cfg), cfg.heartbeat, log_path)
     run_monitor(cfg)
 
 
