@@ -12,9 +12,9 @@
 ## Coding
 - All imports go at the top of the file — never import in the middle of a file
   (not even in test bodies); optional dependencies use the try/except pattern above.
-- Prefer `click` for new CLIs (some older tools use ConfigArgParse or typer).
+- Prefer `click` or `typer` for new CLIs (some older tools use ConfigArgParse).
 - New CLIs should support a config file: add an eager `-c/--config` option whose
-  callback loads an INI file (section named after the app) into `ctx.default_map`,
+  callback loads a TOML/INI file (section named after the app) into `ctx.default_map`,
   defaulting to `~/.config/<app>.cfg`. CLI options must override config values.
 - Formatting is enforced by black (via pytest-black): line length 120,
   `skip-string-normalization` (keep single quotes). Run black before committing.
@@ -23,6 +23,7 @@
   `-F/--foreground` flag. On macOS do not `fork()` after importing Objective-C
   frameworks (AppKit/rumps): re-exec the command with `--foreground` in a new
   session instead.
+- prefer pathlib over os.path
 
 ## Testing
 - Tests live in `test/test_<module>.py`; run them with tox:
