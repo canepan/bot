@@ -23,8 +23,9 @@ TEMPLATE_POST = '''
     </center>
   </body>
 </html>'''
-TEMPLATE_LINE = ('      <a href="{season}/" title="{episodes} episodi">'
-                 '<img src="season{season}-poster.jpg" height="300" /></a>')
+TEMPLATE_LINE = (
+    '      <a href="{season}/" title="{episodes} episodi"><img src="season{season}-poster.jpg" height="300" /></a>'
+)
 
 
 def parse_args(argv: list) -> Namespace:
@@ -65,9 +66,11 @@ class HtmlSeries(object):
 
     def episodes_in(self, subdir: str) -> int:
         season_dir = os.path.join(self.series_dir, subdir)
-        return len(glob(os.path.join(season_dir, '*.avi'))
-                   + glob(os.path.join(season_dir, '*.mkv'))
-                   + glob(os.path.join(season_dir, '*.mp4')))
+        return len(
+            glob(os.path.join(season_dir, '*.avi'))
+            + glob(os.path.join(season_dir, '*.mkv'))
+            + glob(os.path.join(season_dir, '*.mp4'))
+        )
 
     @property
     def seasons(self):

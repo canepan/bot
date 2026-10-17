@@ -243,9 +243,7 @@ def test_render_simple_no_active_host(capsys):
 
 def test_load_candidate_hosts(tmp_path):
     conf = tmp_path / "FLASK.conf"
-    conf.write_text(
-        '# {"vrrp": ["phoenix", "raspy2"], "id": 69}\n' "vrrp_instance FLASK {\n" "  virtual_router_id 69\n" "}\n"
-    )
+    conf.write_text('# {"vrrp": ["phoenix", "raspy2"], "id": 69}\nvrrp_instance FLASK {\n  virtual_router_id 69\n}\n')
     result = ks.load_candidate_hosts(str(tmp_path))
     assert result == {"FLASK": ["phoenix", "raspy2"]}
 

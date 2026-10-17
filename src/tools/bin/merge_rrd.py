@@ -53,141 +53,142 @@ FIELD_MAP = {
 
 
 def rrd_info(rrdname):
-  """Parse `rrdtool info` into step, last_update, DS list and RRA list."""
-  out = subprocess.getoutput("rrdtool info {}".format(rrdname))
-  info = dict(re.findall(r'^(\S+) = "?([^"\n]*)"?$', out, re.M))
-  step = int(info['step'])
-  last_update = int(info['last_update'])
+    """Parse `rrdtool info` into step, last_update, DS list and RRA list."""
+    out = subprocess.getoutput("rrdtool info {}".format(rrdname))
+    info = dict(re.findall(r'^(\S+) = "?([^"\n]*)"?$', out, re.M))
+    step = int(info['step'])
+    last_update = int(info['last_update'])
 
-  ds = []  # (name, type, heartbeat) in index order
-  for name in re.findall(r'^ds\[(\w+)\]\.index', out, re.M):
-    ds.append((name,
-               info['ds[{}].type'.format(name)],
-               info['ds[{}].minimal_heartbeat'.format(name)]))
+    ds = []  # (name, type, heartbeat) in index order
+    for name in re.findall(r'^ds\[(\w+)\]\.index', out, re.M):
+        ds.append((name, info['ds[{}].type'.format(name)], info['ds[{}].minimal_heartbeat'.format(name)]))
 
-  rras = []  # (cf, xff, pdp_per_row, rows)
-  i = 0
-  while 'rra[{}].cf'.format(i) in info:
-    rras.append((info['rra[{}].cf'.format(i)],
-                 info['rra[{}].xff'.format(i)],
-                 int(info['rra[{}].pdp_per_row'.format(i)]),
-                 int(info['rra[{}].rows'.format(i)])))
-    i += 1
-  return step, last_update, ds, rras
+    rras = []  # (cf, xff, pdp_per_row, rows)
+    i = 0
+    while 'rra[{}].cf'.format(i) in info:
+        rras.append(
+            (
+                info['rra[{}].cf'.format(i)],
+                info['rra[{}].xff'.format(i)],
+                int(info['rra[{}].pdp_per_row'.format(i)]),
+                int(info['rra[{}].rows'.format(i)]),
+            )
+        )
+        i += 1
+    return step, last_update, ds, rras
 
 
 def parse_log(logname, start, end):
-  """Yield sorted (epoch, {field: value}) tuples from a speedtest JSON log."""
-  entries = {}
-  with open(logname) as f:
-    for line in f:
-      line = line.strip()
-      if not line.startswith('{'):
-        continue
-      try:
-        d = json.loads(line)
-      except json.JSONDecodeError:
-        continue
-      try:
-        ts = datetime.strptime(d['timestamp'][:19], '%Y-%m-%dT%H:%M:%S')
-      except (KeyError, ValueError):
-        continue
-      t = int(ts.replace(tzinfo=timezone.utc).timestamp())
-      if start <= t <= end:
-        entries[t] = d
-  return sorted(entries.items())
+    """Yield sorted (epoch, {field: value}) tuples from a speedtest JSON log."""
+    entries = {}
+    with open(logname) as f:
+        for line in f:
+            line = line.strip()
+            if not line.startswith('{'):
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            try:
+                ts = datetime.strptime(d['timestamp'][:19], '%Y-%m-%dT%H:%M:%S')
+            except (KeyError, ValueError):
+                continue
+            t = int(ts.replace(tzinfo=timezone.utc).timestamp())
+            if start <= t <= end:
+                entries[t] = d
+    return sorted(entries.items())
 
 
 def log_to_rrd(logname, ref_rrd):
-  """Convert a speedtest log to a temp RRD shaped like ref_rrd.
+    """Convert a speedtest log to a temp RRD shaped like ref_rrd.
 
-  Returns the temp RRD path (caller must remove it).
-  """
-  step, last_update, ds, rras = rrd_info(ref_rrd)
+    Returns the temp RRD path (caller must remove it).
+    """
+    step, last_update, ds, rras = rrd_info(ref_rrd)
 
-  # Only feed entries that can land in the reference RRD's RRA windows.
-  span = max(pdp * rows for _cf, _xff, pdp, rows in rras) * step
-  updates = parse_log(logname, last_update - span, last_update)
-  if not updates:
-    sys.exit('{}: no usable log entries within the time range of {}'.format(
-        logname, ref_rrd))
+    # Only feed entries that can land in the reference RRD's RRA windows.
+    span = max(pdp * rows for _cf, _xff, pdp, rows in rras) * step
+    updates = parse_log(logname, last_update - span, last_update)
+    if not updates:
+        sys.exit('{}: no usable log entries within the time range of {}'.format(logname, ref_rrd))
 
-  fd, tmp = tempfile.mkstemp(suffix='.rrd')
-  os.close(fd)
-  cmd = ['rrdtool', 'create', tmp,
-         '--start', str(updates[0][0] - 1), '--step', str(step)]
-  cmd += ['DS:{}:{}:{}:U:U'.format(name, dstype, int(hb) * HEARTBEAT_TOLERANCE)
-          for name, dstype, hb in ds]
-  cmd += ['RRA:{}:{}:{}:{}'.format(cf, xff, pdp, rows)
-          for cf, xff, pdp, rows in rras]
-  subprocess.run(cmd, check=True)
+    fd, tmp = tempfile.mkstemp(suffix='.rrd')
+    os.close(fd)
+    cmd = ['rrdtool', 'create', tmp, '--start', str(updates[0][0] - 1), '--step', str(step)]
+    cmd += ['DS:{}:{}:{}:U:U'.format(name, dstype, int(hb) * HEARTBEAT_TOLERANCE) for name, dstype, hb in ds]
+    cmd += ['RRA:{}:{}:{}:{}'.format(cf, xff, pdp, rows) for cf, xff, pdp, rows in rras]
+    subprocess.run(cmd, check=True)
 
-  def value(entry, name):
-    key = FIELD_MAP.get(name, name)
-    v = entry.get(key)
-    return str(v) if v is not None else 'U'
+    def value(entry, name):
+        key = FIELD_MAP.get(name, name)
+        v = entry.get(key)
+        return str(v) if v is not None else 'U'
 
-  args = ['{}:{}'.format(t, ':'.join(value(e, name) for name, _t, _h in ds))
-          for t, e in updates]
-  for i in range(0, len(args), 100):
-    subprocess.run(['rrdtool', 'update', tmp] + args[i:i + 100], check=True)
+    args = ['{}:{}'.format(t, ':'.join(value(e, name) for name, _t, _h in ds)) for t, e in updates]
+    for i in range(0, len(args), 100):
+        subprocess.run(['rrdtool', 'update', tmp] + args[i : i + 100], check=True)
 
-  print('{}: fed {} log entries ({} .. {}) into temp RRD'.format(
-      logname, len(updates),
-      datetime.fromtimestamp(updates[0][0], timezone.utc),
-      datetime.fromtimestamp(updates[-1][0], timezone.utc)), file=sys.stderr)
-  return tmp
+    print(
+        '{}: fed {} log entries ({} .. {}) into temp RRD'.format(
+            logname,
+            len(updates),
+            datetime.fromtimestamp(updates[0][0], timezone.utc),
+            datetime.fromtimestamp(updates[-1][0], timezone.utc),
+        ),
+        file=sys.stderr,
+    )
+    return tmp
 
 
 def main():
-  sources = sys.argv[1:]
-  if not sources:
-    sys.exit(__doc__)
+    sources = sys.argv[1:]
+    if not sources:
+        sys.exit(__doc__)
 
-  ref_rrds = [s for s in sources if s.endswith('.rrd')]
-  if not ref_rrds:
-    sys.exit('At least one .rrd file is required as merge template.')
-  ref_rrd = ref_rrds[-1]
+    ref_rrds = [s for s in sources if s.endswith('.rrd')]
+    if not ref_rrds:
+        sys.exit('At least one .rrd file is required as merge template.')
+    ref_rrd = ref_rrds[-1]
 
-  temp_files = []
-  rrds = []
-  for src in sources:
-    if src.endswith('.rrd'):
-      rrds.append(src)
-    else:
-      tmp = log_to_rrd(src, ref_rrd)
-      temp_files.append(tmp)
-      rrds.append(tmp)
+    temp_files = []
+    rrds = []
+    for src in sources:
+        if src.endswith('.rrd'):
+            rrds.append(src)
+        else:
+            tmp = log_to_rrd(src, ref_rrd)
+            temp_files.append(tmp)
+            rrds.append(tmp)
 
-  try:
-    rrd_data = {}
-    last_rrd = len(rrds) - 1
+    try:
+        rrd_data = {}
+        last_rrd = len(rrds) - 1
 
-    for i, rrdname in enumerate(rrds):
-      p = subprocess.getoutput("rrdtool dump {}".format(rrdname))
-      for line in p.split("\n"):
-        m = re.search(r'<cf>(.*)</cf>', line)
-        if m:
-          cf = m.group(1)
-        m = re.search(r'<pdp_per_row>(.*)</pdp_per_row>', line)
-        if m:
-          pdp = m.group(1)
+        for i, rrdname in enumerate(rrds):
+            p = subprocess.getoutput("rrdtool dump {}".format(rrdname))
+            for line in p.split("\n"):
+                m = re.search(r'<cf>(.*)</cf>', line)
+                if m:
+                    cf = m.group(1)
+                m = re.search(r'<pdp_per_row>(.*)</pdp_per_row>', line)
+                if m:
+                    pdp = m.group(1)
 
-        m = re.search(r' / (\d+) --> (.*)', line)
-        if m:
-          k = cf + pdp
-          rrd_data.setdefault(k, {})
-          if ('NaN' not in m.group(2)) or (
-              m.group(1) not in rrd_data[k]):
-            rrd_data[k][m.group(1)] = line
-          line = rrd_data[k][m.group(1)]
+                m = re.search(r' / (\d+) --> (.*)', line)
+                if m:
+                    k = cf + pdp
+                    rrd_data.setdefault(k, {})
+                    if ('NaN' not in m.group(2)) or (m.group(1) not in rrd_data[k]):
+                        rrd_data[k][m.group(1)] = line
+                    line = rrd_data[k][m.group(1)]
 
-        if i == last_rrd:
-          print(line.rstrip())
-  finally:
-    for tmp in temp_files:
-      os.unlink(tmp)
+                if i == last_rrd:
+                    print(line.rstrip())
+    finally:
+        for tmp in temp_files:
+            os.unlink(tmp)
 
 
 if __name__ == '__main__':
-  main()
+    main()

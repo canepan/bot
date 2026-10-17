@@ -40,16 +40,16 @@ class CommandRunner(object):
         self.verbose = verbose
 
     def run_remote_command(self, host: str) -> (str, str, str, int):
-        ssh_options = [
-            '-o', 'StrictHostKeyChecking false', '-o', 'ConnectTimeout 5', '-o', 'BatchMode yes'
-        ]
+        ssh_options = ['-o', 'StrictHostKeyChecking false', '-o', 'ConnectTimeout 5', '-o', 'BatchMode yes']
         if not self.verbose:
             ssh_options.append('-q')
         if self.command.startswith('diff '):
-            file_name = os.path.abspath(self.command[len("diff "):])
+            file_name = os.path.abspath(self.command[len("diff ") :])
             result = run(
                 ['ssh'] + ssh_options + [host, f'stat -c "%y" "{file_name}" ; cat "{file_name}"'],
-                stdout=PIPE, stderr=PIPE, universal_newlines=True
+                stdout=PIPE,
+                stderr=PIPE,
+                universal_newlines=True,
             )
             remote_content = result.stdout.splitlines()
             if remote_content:

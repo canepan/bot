@@ -35,7 +35,7 @@ def main(argv: list = sys.argv[1:]):
                     _ip = socket.gethostbyname(_hn)
                     if _ip != _myip:
                         result = subprocess.check_output(
-                            'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; ' 'exit 0'.format(_hn, _fn, args.diff),
+                            'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; exit 0'.format(_hn, _fn, args.diff),
                             stderr=subprocess.STDOUT,
                             shell=True,
                         )

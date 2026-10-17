@@ -45,12 +45,10 @@ def get_logger(app_name: str, verbose: bool, quiet: bool, with_file: str = None)
     """
     log = logging.getLogger(app_name)
     stderr_handler = _stream_handler(
-        logstream=sys.stderr, loglevel=logging.DEBUG, logname='stderr',
-        logfilters=[MaxLevelFilter(logging.INFO)])
-    log.addHandler(stderr_handler)
-    stdout_handler = _stream_handler(
-        logstream=sys.stdout, loglevel=logging.INFO, logname='stdout'
+        logstream=sys.stderr, loglevel=logging.DEBUG, logname='stderr', logfilters=[MaxLevelFilter(logging.INFO)]
     )
+    log.addHandler(stderr_handler)
+    stdout_handler = _stream_handler(logstream=sys.stdout, loglevel=logging.INFO, logname='stdout')
     log.addHandler(stdout_handler)
     if verbose:
         loglevel = logging.DEBUG

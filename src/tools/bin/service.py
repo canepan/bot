@@ -19,9 +19,7 @@ import click
 
 def are_files_equal(file_list: list, dir1: str, dir2: str) -> bool:
     log = logging.getLogger(__name__)
-    (_, mismatch, errors) = filecmp.cmpfiles(
-        dir1, dir2, file_list, shallow=False
-    )
+    (_, mismatch, errors) = filecmp.cmpfiles(dir1, dir2, file_list, shallow=False)
     if len(mismatch) > 0 or len(errors) > 0:
         log.debug(f"Mismatch: {mismatch}")
         log.debug(f"Errors: {errors}")
@@ -44,11 +42,7 @@ def are_dir_trees_equal(dir1, dir2):
 
     log = logging.getLogger(__name__)
     dirs_cmp = filecmp.dircmp(dir1, dir2)
-    if (
-        len(dirs_cmp.left_only) > 0
-        or len(dirs_cmp.right_only) > 0
-        or len(dirs_cmp.funny_files) > 0
-    ):
+    if len(dirs_cmp.left_only) > 0 or len(dirs_cmp.right_only) > 0 or len(dirs_cmp.funny_files) > 0:
         log.debug(f"Left: {dirs_cmp.left_only}")
         log.debug(f"Right: {dirs_cmp.right_only}")
         log.debug(f"Funny: {dirs_cmp.funny_files}")
@@ -104,9 +98,8 @@ class KeepalivedService(object):
         os.chdir(self._repo_path)
 
     def _config_changed(self) -> bool:
-        return (
-            not are_files_equal(self._config_files, ".", self._config_dir)
-            or not are_dir_trees_equal(".", self._config_dir)
+        return not are_files_equal(self._config_files, ".", self._config_dir) or not are_dir_trees_equal(
+            ".", self._config_dir
         )
 
     def backup_config(self):

@@ -50,8 +50,11 @@ def main(source: str, destination: str, verbose: bool):
                 s_content = s_content or check_output(cat_cmd(source, fname), universal_newlines=True)
                 d_content = d_content or check_output(cat_cmd(destination, fname), universal_newlines=True)
                 for diff_line in unified_diff(
-                        s_content.splitlines(), d_content.splitlines(),
-                        os.path.join(source, fname), os.path.join(destination, fname)):
+                    s_content.splitlines(),
+                    d_content.splitlines(),
+                    os.path.join(source, fname),
+                    os.path.join(destination, fname),
+                ):
                     click.echo(diff_line)
 
 

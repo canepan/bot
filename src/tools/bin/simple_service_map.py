@@ -88,6 +88,7 @@ class Host(object):
     """
     Class to represent an host, wits its reachability status
     """
+
     name: str = attr.ib()
     status_cache = defaultdict(dict)  # {host: {service: True/False}}
 
@@ -137,8 +138,7 @@ class Host(object):
         ka_data = {}
         try:
             ka_statuses = remote_command(
-                ip_if_not_local(self.name),
-                ["killall", "-USR1", "keepalived", ";", "cat /tmp/keepalived.data"]
+                ip_if_not_local(self.name), ["killall", "-USR1", "keepalived", ";", "cat /tmp/keepalived.data"]
             )
         except CalledProcessError:
             ka_statuses = ""
@@ -217,6 +217,7 @@ class Service(object):
       * should_run_on(host): if the host has highest priority in config
       * _status: dict of {'fqdn': ServiceStatus}
     """
+
     def __init__(self, filename: str):
         if os.path.exists(filename):
             self._filename = filename

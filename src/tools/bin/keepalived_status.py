@@ -507,9 +507,7 @@ def render(instances: List[Instance], local_ip: Optional[str], resolver: Optiona
     console.print(dist)
 
     # ---- Summary ------------------------------------------------------------
-    summary = (
-        f"[bold]{len(instances)}[/] instances: " f"[green]{len(masters)} MASTER[/], " f"[cyan]{len(backups)} BACKUP[/]"
-    )
+    summary = f"[bold]{len(instances)}[/] instances: [green]{len(masters)} MASTER[/], [cyan]{len(backups)} BACKUP[/]"
     if others:
         summary += f", [red]{len(others)} other[/]"
     console.print(summary)
@@ -532,7 +530,7 @@ def _collect_problems(instances: List[Instance]) -> List[str]:
             problems.append(f"[red]✗[/] {inst.name}: script [bold]{s.name}[/] is {s.status}")
         if inst.is_degraded:
             problems.append(
-                f"[yellow]![/] {inst.name}: priority degraded " f"({inst.effective_priority} < {inst.priority})"
+                f"[yellow]![/] {inst.name}: priority degraded ({inst.effective_priority} < {inst.priority})"
             )
         if inst.state.upper() not in ("MASTER", "BACKUP"):
             problems.append(f"[red]✗[/] {inst.name}: unexpected state {inst.state}")

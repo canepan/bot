@@ -1,10 +1,14 @@
 #!/bin/sh
 # Taken from http://rosettacode.org/wiki/Multiline_shebang#Python
-"true" '''\'
+(
+    "true"
+    '''\'
 [ -x "${HOME}/Documents/venv/nwn/bin/python" ] && exec "${HOME}/Documents/venv/nwn/bin/python" "$0" "$@"
 exec /usr/bin/env python3 "$0" "$@"
 exit 127
 '''
+)
+
 __doc__ = 'Run a command by first mounting local or remote image files on Mac'
 import argparse
 import logging
@@ -200,8 +204,10 @@ class Torment(RunFromImage):
         self.saves = 'save'
         self.bin_dmg = os.path.expanduser('~/Documents/Nicola/NicolaT.dmg')
         self.bin_dir = os.path.expanduser('~/Documents/Nicola/Mac')
-        self.main_exe = (f'{self.bin_dir}/Planescape Torment - Enhanced Edition.app/Contents/MacOS/'
-                         'Planescape Torment - Enhanced Edition')
+        self.main_exe = (
+            f'{self.bin_dir}/Planescape Torment - Enhanced Edition.app/Contents/MacOS/'
+            'Planescape Torment - Enhanced Edition'
+        )
         super().__init__(*args, **kwargs)
 
 

@@ -64,8 +64,9 @@ class Song:
         try:
             # self._name = re.sub("^[0-9]+([^0-9 ])* (- )?", "",
             #     norm_path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
-            self._name = re.sub(
-                r"^[0-9]+[-_.\s]*", "", self.path.split("/")[self.indexes["title"]][:-4]).replace("_", " ")
+            self._name = re.sub(r"^[0-9]+[-_.\s]*", "", self.path.split("/")[self.indexes["title"]][:-4]).replace(
+                "_", " "
+            )
         except Exception as e:
             click.echo(f"Error searching name from {self.path}: {e}")
         try:
@@ -161,7 +162,8 @@ def main(sources: list):
         if v and isinstance(v[0], str):
             commands.append(
                 f"eyeD3 --{' --'.join([param_for(k, i) for i in v if isinstance(i, str)])}"
-                f" {quote(k.tag.file_info.name)}")
+                f" {quote(k.tag.file_info.name)}"
+            )
     click.echo("\n".join(commands))
     click.echo(f"Checked {count} files, {len(incomplete)} missing data, {differences} discrepancies")
 

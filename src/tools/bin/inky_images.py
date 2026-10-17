@@ -3,6 +3,7 @@ import os
 import random
 import re
 import sys
+
 # TODO: use this
 # from configparser import ConfigParser
 from pathlib import Path
@@ -29,7 +30,14 @@ def is_valid(file_path: Path, valid_extensions) -> bool:
 
 
 @click.command()
-@click.option("--input-dirs", "-i", type=str, multiple=True, default=(Path(".").absolute(),), help="One or more directory or @file containing a list of dirs")
+@click.option(
+    "--input-dirs",
+    "-i",
+    type=str,
+    multiple=True,
+    default=(Path(".").absolute(),),
+    help="One or more directory or @file containing a list of dirs",
+)
 @click.option("--output-dir", "-o", type=Path, default=Path(".").absolute())
 @click.option("--dry-run", "-d", is_flag=True, envvar="DRYRUN")
 @click.option("--extensions", "-e", type=str, multiple=True, default=VALID_EXTS)
@@ -44,8 +52,8 @@ def app(input_dirs: list[str], output_dir: Path, dry_run: bool, extensions: tupl
             file_path = Path(input_dir[1:])  # Remove the @ prefix
 
             if not file_path.is_file():
-                typer.echo(f"Error: File not found: {file_path}", err=True)
-                raise typer.Exit(code=1)
+                click.echo(f"Error: File not found: {file_path}", err=True)
+                raise click.Exit(code=1)
 
             # Read directories from file
             with open(file_path, 'r') as f:
@@ -99,7 +107,10 @@ def convert(input_files: list):
             res = img
         res = res.resize((inky_format["width"], inky_format["height"]), resample=Image.LANCZOS)
         if dryrun(os.environ):
-            print(f"Would save {file_name}.jpg with size {res.size} from {input_file} {img.size} and {title=} in {file_name}.txt")
+            print(
+                f"Would save {file_name}.jpg with size {res.size} from {input_file} {img.size} and {title=} in "
+                "{file_name}.txt"
+            )
         else:
             res.save(f"{file_name}.jpg")
             Path(f"{file_name}.txt").write_text(title)
@@ -139,4 +150,3 @@ def create_html_index(img_dir="."):
 
 if __name__ == "__main__":
     app()
-

@@ -4,6 +4,7 @@ import typing
 from functools import lru_cache
 
 import attr
+
 try:
     import dns.query
     import dns.rdataclass
@@ -29,7 +30,7 @@ def gethostbyname(hn: str) -> str:
 
 
 def ip_if_not_local(host: str) -> typing.Optional[str]:
-    """ return the resolved IP if it's not the local IP """
+    """return the resolved IP if it's not the local IP"""
     _ip = gethostbyname(host)
     my_host = socket.gethostname()
     if my_host != host and _ip != gethostbyname(my_host):
@@ -58,7 +59,8 @@ def hosts_from_dns(dns_zone: typing.Optional[str], log: logging.Logger) -> dict:
         try:
             soa_answer = dns.resolver.resolve(dns_zone, 'SOA')
             full_zone = dns.zone.from_xfr(
-                dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone))
+                dns.query.xfr(dns.resolver.resolve(soa_answer[0].mname, 'A')[0].address, dns_zone)
+            )
             all_hosts = {'linux': set(), 'mac': set()}
             for record_name, dns_record in full_zone.items():
                 txt_rdata = dns_record.get_rdataset(dns.rdataclass.IN, dns.rdatatype.TXT)

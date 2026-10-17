@@ -7,6 +7,7 @@ from playwright.sync_api import sync_playwright
 # Modifica questi valori con le tue credenziali e dati di prenotazione
 BOOKING_URL = "https://prenotami.esteri.it/Services/Booking/5770"
 
+
 def run_automation():
     # Carica le variabili contenute nel file .env
     load_dotenv()
@@ -43,9 +44,9 @@ def run_automation():
         page.wait_for_url("**/iam.esteri.it/**")
 
         # Compilazione del modulo di login su IAM
-        #page.fill("input[name='Username'], input[type='email']", EMAIL)
+        # page.fill("input[name='Username'], input[type='email']", EMAIL)
         page.fill("input[name='callback_1'], input[type='email']", EMAIL)
-        #page.fill("input[name='Password'], input[type='password']", PASSWORD)
+        # page.fill("input[name='Password'], input[type='password']", PASSWORD)
         page.fill("input[name='callback_2'], input[type='password']", PASSWORD)
         page.click("button[type='submit'], input[type='submit']")
 
@@ -62,7 +63,7 @@ def run_automation():
 
         # 3. Compilazione dei campi del modulo
         print("[4/4] Compilazione dei campi...")
-        
+
         # Esempi di selettori per la compilazione (da adattare in base al form specifico):
         # page.fill("#Field1", "Valore Campo 1")
         # page.select_option("select#TipoDocumento", value="Passaporto")
@@ -89,6 +90,7 @@ def run_automation():
 
         time.sleep(5)
         browser.close()
+
 
 if __name__ == "__main__":
     run_automation()

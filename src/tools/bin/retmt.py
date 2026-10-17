@@ -37,9 +37,11 @@ def inform_xymon(result, ErrMsg):
         ErrMsg_str += "\n"
 
     hostName = socket.gethostname().replace(".", ",")
-    result = (f"status {hostName}.{TestName} {ColourOf[colour]} {datetime.now().strftime(FmtDate)}\n"
-              f"<b>Temperature sensor readings</b>\n\n"
-              f"{ErrMsg_str}{result}\n")
+    result = (
+        f"status {hostName}.{TestName} {ColourOf[colour]} {datetime.now().strftime(FmtDate)}\n"
+        f"<b>Temperature sensor readings</b>\n\n"
+        f"{ErrMsg_str}{result}\n"
+    )
 
     subprocess.run([XySend, XyDisp, result], check=True)
 
@@ -53,12 +55,7 @@ def read_sensors():
             lines = f.readlines()
             if len(lines) == 1 and lines[0].startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')):
                 temp_value = float(lines[0].strip()) / 1000
-                Temp['CPU'] = {
-                    'label': 'CPU',
-                    'input': temp_value,
-                    'max': ThresholdYellow,
-                    'crit': ThresholdRed
-                }
+                Temp['CPU'] = {'label': 'CPU', 'input': temp_value, 'max': ThresholdYellow, 'crit': ThresholdRed}
             else:
                 ErrMsg['clear'].append(f"Cannot read CPU temperature from {CpuFil}:\nUnexpected input")
     except OSError as e:
@@ -70,12 +67,7 @@ def read_sensors():
             match = re.match(r'^temp=(\d+\.\d+).*C$', lines[0])
             if match:
                 temp_value = float(match.group(1))
-                Temp['GPU'] = {
-                    'label': 'GPU',
-                    'input': temp_value,
-                    'max': ThresholdYellow,
-                    'crit': ThresholdRed
-                }
+                Temp['GPU'] = {'label': 'GPU', 'input': temp_value, 'max': ThresholdYellow, 'crit': ThresholdRed}
             else:
                 ErrMsg['clear'].append(f"Cannot read GPU temperature from `{GpuCmd}`:\nUnexpected input : {lines[0]}")
         else:
@@ -93,10 +85,7 @@ def build_message(Temp, ErrMsg):
     TempAvg = 0
     TempMax = -100
 
-    result = (
-        "<table border=1 cellpadding=5>\n"
-        " <tr> <th>Sensor</th> <th>Temp [C]</th> <th>Threshold [C]</th> </tr>\n"
-    )
+    result = "<table border=1 cellpadding=5>\n <tr> <th>Sensor</th> <th>Temp [C]</th> <th>Threshold [C]</th> </tr>\n"
 
     for sensor, data in Temp.items():
         TempMin = min(TempMin, data['input'])
@@ -114,20 +103,24 @@ def build_message(Temp, ErrMsg):
             clr = 'yellow'
             ErrMsg[clr].append(f"Temperature of {data['label']} is high")
 
-        result = (f"{result} <tr> <td>{data['label']}</td> "
-                  f"<td align='right'>{data['input']} &{clr}</td> "
-                  f"<td align='right'>{data['max']}</td> "
-                  "</tr>\n")
+        result = (
+            f"{result} <tr> <td>{data['label']}</td> "
+            f"<td align='right'>{data['input']} &{clr}</td> "
+            f"<td align='right'>{data['max']}</td> "
+            "</tr>\n"
+        )
 
     result = f"{result}</table>\n"
     TempAvg /= len(Temp)
     TempAvg = f"{TempAvg:.1f}"
 
-    result = (f"{result}<!-- linecount=1 -->\n"
-              f"<!--DEVMON RRD: env 0 0\n"
-              "DS:Temperature:GAUGE:600:-100:100 DS:MinTemp:GAUGE:600:-100:100 DS:MaxTemp:GAUGE:600:-100:100\n"
-              f"temp.cpu {TempAvg}:{TempMin}:{TempMax}\n"
-              "-->")
+    result = (
+        f"{result}<!-- linecount=1 -->\n"
+        f"<!--DEVMON RRD: env 0 0\n"
+        "DS:Temperature:GAUGE:600:-100:100 DS:MinTemp:GAUGE:600:-100:100 DS:MaxTemp:GAUGE:600:-100:100\n"
+        f"temp.cpu {TempAvg}:{TempMin}:{TempMax}\n"
+        "-->"
+    )
     return result
 
 

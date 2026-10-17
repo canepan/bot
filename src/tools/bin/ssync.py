@@ -12,7 +12,7 @@ def main(argv: list = sys.argv[1:]):
         for _fn in args.filenames:
             try:
                 result = subprocess.check_output(
-                    'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; ' 'exit 0'.format(_host.hostname, _fn, args.diff),
+                    'ssh {0} "cat \'{1}\'" | {2} "{1}" - ; exit 0'.format(_host.hostname, _fn, args.diff),
                     stderr=subprocess.STDOUT,
                     shell=True,
                 )

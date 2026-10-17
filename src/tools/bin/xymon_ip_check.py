@@ -54,8 +54,7 @@ def main(argv: list = sys.argv[1:]):
 
     if dns_ip is None:
         Xymon(cfg, APP_NAME, "ip").send_status(
-            XymonStatus.RED,
-            f"CRITICAL - DNS lookup failed for {HOSTNAME} using {dns_server}\n"
+            XymonStatus.RED, f"CRITICAL - DNS lookup failed for {HOSTNAME} using {dns_server}\n"
         )
         sys.exit(2)
 

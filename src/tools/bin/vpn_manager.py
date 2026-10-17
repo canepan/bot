@@ -19,6 +19,7 @@ workflow safe (confirmations before destructive operations).
 
 Dependencies: typer, questionary, rich  (plus the ``easyrsa`` executable).
 """
+
 import os
 import shutil
 import subprocess
@@ -37,6 +38,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from tools.libs.config import TyperConfigReader
+
 try:
     from ..libs.xymon import Xymon, XymonStatus
 except (ImportError, ValueError):  # running as a plain script
@@ -221,9 +223,7 @@ def _ask_confirm(message: str, default: bool = False) -> bool:
 
 def _require_pki(ersa: "EasyRSA") -> bool:
     if not ersa.pki_initialised:
-        console.print(
-            f"No PKI found at {ersa.pki_dir}. Initialise it first.", style="yellow"
-        )
+        console.print(f"No PKI found at {ersa.pki_dir}. Initialise it first.", style="yellow")
         return False
     return True
 
@@ -401,8 +401,7 @@ def action_renew(ersa: "EasyRSA") -> None:
     if not name:
         return
     console.print(
-        f"Renew re-signs '{name}' with a new expiry (reusing its existing key). "
-        "Requires EasyRSA >= 3.0.6.",
+        f"Renew re-signs '{name}' with a new expiry (reusing its existing key). Requires EasyRSA >= 3.0.6.",
         style="dim",
     )
     if not _ask_confirm(f"Renew '{name}'?", default=True):
@@ -449,9 +448,7 @@ def _publish_xymon(ersa: "EasyRSA", check_name: str, warn_days: int, crit_days: 
     helper echoes the command instead of sending (dry-run).
     """
     if Xymon is None or XymonStatus is None:
-        console.print(
-            "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
-        )
+        console.print("Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red")
         return 2
     status, message = _xymon_report(ersa, warn_days=warn_days, crit_days=crit_days, check_name=check_name)
     if dry_run:
@@ -471,9 +468,7 @@ def action_xymon(ersa: "EasyRSA") -> None:
     if not _require_pki(ersa):
         return
     if Xymon is None:
-        console.print(
-            "Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red"
-        )
+        console.print("Xymon support is unavailable (could not import tools.libs.xymon).", style="bold red")
         return
     status, message = _xymon_report(ersa, warn_days=WARN_DAYS, crit_days=CRIT_DAYS, check_name=XYMON_CHECK_NAME)
     console.print(Panel(message, title=f"Xymon report ({status.value})", border_style="cyan", expand=False))

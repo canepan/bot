@@ -60,9 +60,7 @@ def main(argv=sys.argv[1:]):
         default="/var/lib/xymon/data/speedtest.log",
         help="Logfile with output line(s) from speedtest-cli",
     )
-    parser.add_argument(
-        "--debug", "-d", action="store_true", help="Enable debug (skips sending data)"
-    )
+    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug (skips sending data)")
     parser.add_argument(
         "--log_file",
         "-l",
@@ -99,9 +97,7 @@ def main(argv=sys.argv[1:]):
         status = XymonStatus.GREEN
     Xymon(cfg, APP_NAME, "ispeed").send_status(
         status,
-        "upload_speed: {upload}\n"
-        "download_speed: {download}\n"
-        "ping: {ping}".format(**record),
+        "upload_speed: {upload}\ndownload_speed: {download}\nping: {ping}".format(**record),
     )
 
 
