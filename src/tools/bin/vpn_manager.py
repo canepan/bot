@@ -36,7 +36,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from tools.libs.config import ConfigError, TyperConfigReader
+from tools.libs.config import TyperConfigReader
 try:
     from ..libs.xymon import Xymon, XymonStatus
 except (ImportError, ValueError):  # running as a plain script
@@ -656,9 +656,11 @@ def main(
     batch: bool = typer.Option(False, "--batch", help="Run EasyRSA non-interactively where possible."),
 ) -> None:
     """OpenVPN certificate manager (EasyRSA backend)."""
-    # config = ConfigReader(APP_NAME)
-    # ctx.default_map = config.load(config_file, commands=ctx.command.commands)  # type: ignore[attr-defined]
-    ctx.obj = {"pki_dir": pki_dir.expanduser(), "easyrsa": easyrsa, "batch": batch}
+    ctx.obj = {
+        "pki_dir": pki_dir.expanduser(),
+        "easyrsa": os.path.expanduser(easyrsa) if easyrsa else None,
+        "batch": batch,
+    }
 
     # A sub-command was requested: let it run, skip the interactive menu.
     if ctx.invoked_subcommand is not None:
