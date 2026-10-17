@@ -7,7 +7,7 @@ name = 'NicolaCanepa_Tools'
 version = "0.1.4"
 description = "Useful tools"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     'attrs',
     'click',
@@ -112,7 +112,7 @@ addopts = [
     "--cov-report=xml",
     "--ignore=test/bats",
     # "--black",
-    # "--mypy",
+    "--mypy",
     # Uncomment to enforce a minimum code coverage threshold.
     # "--cov-fail-under=50"
 ]
@@ -150,4 +150,36 @@ mccabe.max-complexity = 16
 
 [tool.ruff.format]
 quote-style = "preserve"  # matches black's skip-string-normalization
+
+[tool.tox]
+env_list = ["py311", "py312", "py313", "bats", "lint"]
+
+[tool.tox.env_run_base]
+deps = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mypy",
+    "importlib-metadata < 5.0",
+    "types-mock",
+    "setuptools",
+]
+commands = [["pytest", { replace = "posargs", default = ["test"], extend = true }]]
+pass_env = ["HOME"]
+extras = ["ldap", "media"]
+
+[tool.tox.env.bats]
+deps = []
+allowlist_externals = ["{tox_root}/test/bats/bin/bats"]
+commands = [["{tox_root}/test/bats/bin/bats", "-r", "{tox_root}/test/shell/"]]
+
+[tool.tox.env.lint]
+deps = ["ruff"]
+commands = [
+    ["ruff", "check", "src", "test"],
+    ["ruff", "format", "--check", "src", "test"],
+]
+
+[tool.tox.env.format]
+deps = ["ruff"]
+commands = [["ruff", "format", "."]]
 
