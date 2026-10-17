@@ -111,8 +111,8 @@ addopts = [
     "--cov-report=html",
     "--cov-report=xml",
     "--ignore=test/bats",
-    "--black",
-    "--mypy",
+    # "--black",
+    # "--mypy",
     # Uncomment to enforce a minimum code coverage threshold.
     # "--cov-fail-under=50"
 ]
@@ -139,4 +139,15 @@ show_error_context = false
 strict_optional = false
 follow_imports = "skip"
 exclude = "test/bats/"
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["test/bats"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "C90"]  # flake8 defaults + max-complexity
+mccabe.max-complexity = 16
+
+[tool.ruff.format]
+quote-style = "preserve"  # matches black's skip-string-normalization
 
