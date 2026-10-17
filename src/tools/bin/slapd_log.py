@@ -90,7 +90,7 @@ class LdapLog(object):
 
     def __str__(self):
         if self.show_json:
-            return json.dumps(self.data, indent=2)
+            return json.dumps({k: dict(v) if v else {} for k, v in self.data.items()}, indent=2)
         lines = []
         for k, data_flow in self.data.items():
             if data_flow:
