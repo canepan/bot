@@ -2,16 +2,21 @@
 
 Precedence: command line > environment variables > config file > built-in defaults.
 
-Example (~/.config/<script>/config.toml):
+Example (~/.config/<script>/config.toml), for vpn-manager:
 
-    host = "192.168.1.50"
-    user = "admin"
-    password = "secret"
-    channel = [0]
+    pki-dir = "~/vpn/pki"
+    easyrsa = "/usr/share/easy-rsa/easyrsa"
 
-    [download]
-    output = "~/cctv"
-    mp4 = true
+    [xymon]
+    warn-days = 45
+    crit-days = 10
+
+    [export]
+    host = "vpn.example.com"
+    proto = "tcp"
+
+Top-level keys apply to the group's own options and to every command; a [command] table
+overrides them for that command. Keys are option names, with "-" or "_".
 """
 
 from __future__ import annotations
@@ -23,17 +28,16 @@ import tomllib
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import MappingProxyType
-from typing import Annotated, Any, Optional
+from typing import Any
 
 try:
     import typer
-except (ImportError, ValueError):
+except ImportError:
     typer = None  # type: ignore[assignment]
 
 try:
     import click
-except ImportError:  # typer >= 0.27 vends its own click
+except ImportError:
     click = None  # type: ignore[assignment]
 
 log = logging.getLogger(__name__)
@@ -45,6 +49,12 @@ class ConfigError(Exception):
 
 @dataclass
 class ConfigReader:
+    """Framework-neutral: reads the TOML file and builds a Click default_map.
+
+    In a group callback, for options declared on the subcommands:
+        ctx.default_map = ConfigReader(APP_NAME).load(config_file, commands=ctx.command.commands)
+    """
+
     service_name: str
     # Keys accepted at top level and in [command] sections, mapped to the option's parameter name.
     aliases: Mapping[str, str] = field(default_factory=dict)
@@ -61,7 +71,10 @@ class ConfigReader:
         return out
 
     def read(self, path: Path | None, commands: Iterable[str]) -> dict[str, Any]:
-        """Read and validate the TOML file; {} if `path` is None and the default file is missing."""
+        """Read and validate the raw TOML data.
+
+        If `path` is None the default location is used and a missing file gives {}.
+        """
         explicit = path is not None
         path = (path or self.default_path()).expanduser()
         if not path.is_file():
@@ -85,94 +98,42 @@ class ConfigReader:
             raise ConfigError(f"{path}: unknown section(s) {sorted(unknown)}, expected {sorted(commands)}")
         return data
 
-    def load(self, path: Path | None, commands: Iterable[str]) -> dict[str, dict[str, Any]]:
-        """Return a Click `default_map`: {command: {param: value}}.
-
-        Top-level keys apply to every command; a [command] table overrides them for that command.
-        If `path` is None the default location is used and a missing file is not an error.
-        """
-        data = self.read(path, commands)
-        common = self._normalise({k: v for k, v in data.items() if not isinstance(v, dict)})
-        return {cmd: {**common, **self._normalise(data.get(cmd, {}))} for cmd in commands}
-
-
-@dataclass
-class TyperConfigReader(ConfigReader):
-    """
-    In each script:
-
-    from tools.libs.config import ConfigReader
-
-    ConfigFile = ConfigReader(APP_NAME).option(envvar="VPN_CONFIG")
-
-
-    @app.callback(invoke_without_command=True)
-    def main(ctx: typer.Context, config_file: ConfigFile = None, pki_dir: Path = ..., ...):
-        ...
-    """
-
     def top_level(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Normalised keys outside any [command] table."""
         return self._normalise({k: v for k, v in data.items() if not isinstance(v, dict)})
 
     def default_map(self, path: Path | None, commands: Iterable[str]) -> dict[str, Any]:
-        """Click default_map for a group or a single command: top-level keys for the root
-        options, plus {command: {...}} for each subcommand."""
-        data = self.read(path, commands)  # the current load() body up to the section check
+        """Click default_map: top-level keys (for the group's own options) plus
+        {command: {...}} for each subcommand, where a [command] table overrides top-level keys."""
+        commands = list(commands)
+        data = self.read(path, commands)
         common = self.top_level(data)
-        per_command = {cmd: {**common, **self._normalise(data.get(cmd, {}))} for cmd in commands}
-        return {**common, **per_command}
+        return {**common, **{cmd: {**common, **self._normalise(data.get(cmd, {}))} for cmd in commands}}
 
-    def option(self, envvar: str | None = None):
-        """Annotated type for a `--config` parameter that loads this config into ctx.default_map."""
+    def load(self, path: Path | None, commands: Iterable[str]) -> dict[str, dict[str, Any]]:
+        """Per-command part of default_map() only: {command: {param: value}}."""
+        commands = list(commands)
+        full = self.default_map(path, commands)
+        return {cmd: full[cmd] for cmd in commands}
 
-        def load(ctx: typer.Context, value: Path | None) -> Path | None:
-            if ctx.resilient_parsing:  # shell completion: don't touch files
-                return value
-            commands = getattr(ctx.command, "commands", {})  # {} for single-command scripts
-            try:
-                ctx.default_map = {**(ctx.default_map or {}), **self.default_map(value, commands)}
-            except ConfigError as exc:
-                raise typer.BadParameter(str(exc), param_hint="--config") from None
-            return value
-
-        return Annotated[
-            Optional[Path],
-            typer.Option(
-                "--config",
-                envvar=envvar,
-                dir_okay=False,
-                is_eager=True,
-                callback=load,
-                show_default=False,
-                help=f"TOML config file. Default: {self.default_path()} (if present).",
-            ),
-        ]
-
-
-class AutoConfigReader(ConfigReader):
-    """
-    Using it in a Click script:
-
-    config = ConfigReader("my-tool")
-
-    @click.group()
-    @config.click_option(envvar="MY_TOOL_CONFIG")
-    @click.option("--pki-dir", type=click.Path(path_type=Path), default="pki")
-    def cli(pki_dir): ...
-    """
-
-    def apply(self, ctx, value: Path | None) -> None:
-        """Load the config into ctx.default_map (works with click and typer contexts)."""
-        if ctx.resilient_parsing:  # shell completion
+    def apply(self, ctx: Any, value: Path | None) -> None:
+        """Load the config into ctx.default_map; works with click and typer contexts."""
+        if ctx.resilient_parsing:  # shell completion: don't touch files
             return
-        commands = getattr(ctx.command, "commands", {})
+        commands = getattr(ctx.command, "commands", {})  # {} for single-command scripts
         ctx.default_map = {**(ctx.default_map or {}), **self.default_map(value, commands)}
 
     def _help(self) -> str:
         return f"TOML config file. Default: {self.default_path()} (if present)."
 
-    def typer_option(self, envvar: str | None = None):
-        import typer
+
+class TyperConfigReader(ConfigReader):
+    """config_file: Path | None = TyperConfigReader(APP_NAME).option(envvar="X_CONFIG")"""
+
+    def option(self, envvar: str | None = None) -> Any:
+        """Default value for an eager `--config` parameter of a typer callback or command."""
+        if typer is None:
+            raise RuntimeError("TyperConfigReader needs typer installed")
 
         def callback(ctx: typer.Context, value: Path | None) -> Path | None:
             try:
@@ -181,14 +142,25 @@ class AutoConfigReader(ConfigReader):
                 raise typer.BadParameter(str(exc), param_hint="--config") from None
             return value
 
-        return Annotated[
-            Optional[Path],
-            typer.Option("--config", envvar=envvar, dir_okay=False, is_eager=True,
-                         callback=callback, show_default=False, help=self._help()),
-        ]
+        return typer.Option(
+            None,
+            "--config",
+            envvar=envvar,
+            dir_okay=False,
+            is_eager=True,
+            callback=callback,
+            show_default=False,
+            help=self._help(),
+        )
 
-    def click_option(self, envvar: str | None = None):
-        import click
+
+class ClickConfigReader(ConfigReader):
+    """@ClickConfigReader(APP_NAME).option(envvar="X_CONFIG") on a click group or command."""
+
+    def option(self, envvar: str | None = None) -> Any:
+        """Decorator adding an eager `--config` option (not passed to the function)."""
+        if click is None:
+            raise RuntimeError("ClickConfigReader needs click installed")
 
         def callback(ctx: click.Context, param: click.Parameter, value: Path | None) -> None:
             try:
@@ -197,6 +169,11 @@ class AutoConfigReader(ConfigReader):
                 raise click.BadParameter(str(exc), ctx=ctx, param=param) from None
 
         return click.option(
-            "--config", envvar=envvar, type=click.Path(dir_okay=False, path_type=Path),
-            is_eager=True, expose_value=False, callback=callback, help=self._help(),
+            "--config",
+            envvar=envvar,
+            type=click.Path(dir_okay=False, path_type=Path),
+            is_eager=True,
+            expose_value=False,
+            callback=callback,
+            help=self._help(),
         )
