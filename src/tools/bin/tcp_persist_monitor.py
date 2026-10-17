@@ -150,7 +150,9 @@ def route_description(cfg: MonitorConfig) -> str:
     """Human-readable description of the path being monitored.
 
     >>> log = logging.getLogger('doctest')
-    >>> direct = MonitorConfig('h', 443, '/', None, 0, None, 30, 10, 2, None, None, 30, True, True, False, 'c', False, log)
+    >>> direct = MonitorConfig(
+    ...     'h', 443, '/', None, 0, None, 30, 10, 2, None, None, 30, True, True, False, 'c', False, log
+    ... )
     >>> route_description(direct)
     'h:443'
     >>> viaproxy = dataclasses.replace(direct, proxy_host='px', proxy_port=8080)
