@@ -1,4 +1,3 @@
-#!/mnt/opt/nicola/tools/bin/python
 """Detect TCP disconnections between the LAN and the internet.
 
 Holds a single persistent keep-alive TLS connection to a target (by default
@@ -83,6 +82,7 @@ class MonitorConfig:
     pre_script: str | None
     post_script: str | None
     hook_timeout: int
+    tls: bool
     verify_tls: bool
     xymon: bool
     xymon_check: str
@@ -150,7 +150,7 @@ def route_description(cfg: MonitorConfig) -> str:
     """Human-readable description of the path being monitored.
 
     >>> log = logging.getLogger('doctest')
-    >>> direct = MonitorConfig('h', 443, '/', None, 0, None, 30, 10, 2, None, None, 30, True, False, 'c', False, log)
+    >>> direct = MonitorConfig('h', 443, '/', None, 0, None, 30, 10, 2, None, None, 30, True, True, False, 'c', False, log)
     >>> route_description(direct)
     'h:443'
     >>> viaproxy = dataclasses.replace(direct, proxy_host='px', proxy_port=8080)
@@ -163,34 +163,53 @@ def route_description(cfg: MonitorConfig) -> str:
     return target
 
 
-def build_connection(cfg: MonitorConfig) -> http.client.HTTPSConnection:
-    """Construct (but do not yet dial) the keep-alive HTTPS connection.
+def build_connection(cfg: MonitorConfig) -> http.client.HTTPConnection:
+    """Construct (but do not yet dial) the keep-alive connection.
 
-    With a proxy configured the connection targets the proxy and a CONNECT
-    tunnel to the real target is armed via ``set_tunnel``; the tunnel is
-    established on the first request.
+    Routing combinations:
+    * TLS + proxy   -> connect to the proxy, arm a CONNECT tunnel to the target
+    * TLS direct    -> connect straight to the target over HTTPS
+    * HTTP + proxy  -> connect to the proxy; requests use the absolute-form URI
+    * HTTP direct   -> connect straight to the target over plain HTTP
+
+    Plain HTTP (``--no-tls``, e.g. port 80) avoids TLS/SNI and lets the server
+    route by the Host header -- handy when split-horizon DNS forces a bare IP.
     """
-    context = _ssl_context(cfg)
+    if cfg.tls:
+        context = _ssl_context(cfg)
+        if cfg.proxy_host:
+            tunnel = http.client.HTTPSConnection(cfg.proxy_host, cfg.proxy_port, timeout=cfg.timeout, context=context)
+            tunnel.set_tunnel(cfg.target_host, cfg.target_port, headers=_proxy_headers(cfg))
+            return tunnel
+        return http.client.HTTPSConnection(cfg.target_host, cfg.target_port, timeout=cfg.timeout, context=context)
     if cfg.proxy_host:
-        conn = http.client.HTTPSConnection(cfg.proxy_host, cfg.proxy_port, timeout=cfg.timeout, context=context)
-        conn.set_tunnel(cfg.target_host, cfg.target_port, headers=_proxy_headers(cfg))
-    else:
-        conn = http.client.HTTPSConnection(cfg.target_host, cfg.target_port, timeout=cfg.timeout, context=context)
-    return conn
+        return http.client.HTTPConnection(cfg.proxy_host, cfg.proxy_port, timeout=cfg.timeout)
+    return http.client.HTTPConnection(cfg.target_host, cfg.target_port, timeout=cfg.timeout)
 
 
-def probe(conn: http.client.HTTPSConnection, cfg: MonitorConfig) -> int:
+def probe(conn: http.client.HTTPConnection, cfg: MonitorConfig) -> int:
     """Send one heartbeat request on the open connection; raise on failure.
 
-    The first call establishes the CONNECT tunnel/TLS/keep-alive; subsequent
-    calls reuse the same TCP connection, so a dropped connection surfaces here
-    as an exception.
+    The first call establishes the TLS/tunnel/keep-alive; subsequent calls reuse
+    the same TCP connection, so a dropped connection surfaces here as an
+    exception. A completed HTTP exchange (any status) means the connection is
+    alive; only transport-level failures count as a drop.
     """
-    conn.request('HEAD', cfg.path, headers={'Host': cfg.target_host, 'Connection': 'keep-alive'})
+    headers = {'Host': cfg.target_host, 'Connection': 'keep-alive'}
+    if cfg.proxy_host and not cfg.tls:
+        # plain HTTP through a proxy: absolute-form request URI + proxy auth
+        headers.update(_proxy_headers(cfg))
+        target = f'http://{cfg.target_host}:{cfg.target_port}{cfg.path}'
+    else:
+        target = cfg.path
+    conn.request('HEAD', target, headers=headers)
     resp = conn.getresponse()
     resp.read()
-    if resp.status >= 500:
-        raise ConnectionError(f'HTTP {resp.status}')
+    # A completed HTTP exchange proves the TCP connection is alive; only
+    # transport-level failures (which raise before we get here) count as a drop.
+    # A 4xx/5xx is a server/app response, not a disconnection.
+    if resp.status >= 400:
+        cfg.log.debug('heartbeat returned HTTP %s (connection is alive)', resp.status)
     # keep the underlying socket alive at the TCP layer too
     try:
         conn.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)  # type: ignore[union-attr]
@@ -227,7 +246,7 @@ def _emit(cfg: MonitorConfig, status: XymonStatus, message: str) -> None:
             cfg.log.error('Xymon report failed: %s', e)
 
 
-def _close(conn: http.client.HTTPSConnection | None) -> None:
+def _close(conn: http.client.HTTPConnection | None) -> None:
     if conn is not None:
         try:
             conn.close()
@@ -243,7 +262,7 @@ def run_monitor(cfg: MonitorConfig, iterations: int | None = None) -> Connection
     ``iterations`` bounds the loop for testing (``None`` = run forever).
     """
     tracker = ConnectionTracker()
-    conn: http.client.HTTPSConnection | None = None
+    conn: http.client.HTTPConnection | None = None
     up_since: float | None = None
     hooked_up = False
     count = 0
@@ -256,13 +275,13 @@ def run_monitor(cfg: MonitorConfig, iterations: int | None = None) -> Connection
                         run_hook(cfg.pre_script, cfg, 'pre')
                         hooked_up = True
                     conn = build_connection(cfg)
-                probe(conn, cfg)
+                probe_status = probe(conn, cfg)
                 if tracker.mark_up():
                     up_since = time.time()
                     _emit(
                         cfg,
                         XymonStatus.GREEN,
-                        f'connected {route_description(cfg)} (reconnects: {tracker.connects - 1})',
+                        f'connected {route_description(cfg)} HTTP {probe_status} (reconnects: {tracker.connects - 1})',
                     )
                 time.sleep(cfg.heartbeat)
             except Exception as e:
@@ -370,6 +389,13 @@ def load_config(ctx: click.Context, param: click.Parameter, value: str) -> str:
     '--post-script', default=None, help='Shell command to run after a disconnect/on exit, e.g. tear a VPN down'
 )
 @click.option('--hook-timeout', default=30, show_default=True, help='Timeout (seconds) for pre/post hook commands')
+@click.option(
+    '--tls/--no-tls',
+    'tls',
+    default=True,
+    show_default=True,
+    help='Use HTTPS (default) or plain HTTP with --no-tls (e.g. port 80)',
+)
 @click.option('--verify/--no-verify', 'verify_tls', default=True, show_default=True, help='Verify the target TLS cert')
 @click.option('--xymon/--no-xymon', default=True, show_default=True, help='Report state transitions to Xymon')
 @click.option('--xymon-check', default='wantcp', show_default=True, help='Xymon column name')
@@ -399,6 +425,7 @@ def main(
     pre_script: str | None,
     post_script: str | None,
     hook_timeout: int,
+    tls: bool,
     verify_tls: bool,
     xymon: bool,
     xymon_check: str,
@@ -432,6 +459,7 @@ def main(
         pre_script=pre_script,
         post_script=post_script,
         hook_timeout=int(hook_timeout),
+        tls=tls,
         verify_tls=verify_tls,
         xymon=xymon,
         xymon_check=xymon_check,
