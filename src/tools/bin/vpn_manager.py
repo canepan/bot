@@ -36,7 +36,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from tools.libs.config import ConfigError, ConfigReader
+from tools.libs.config import ConfigError, TyperConfigReader
 try:
     from ..libs.xymon import Xymon, XymonStatus
 except (ImportError, ValueError):  # running as a plain script
@@ -641,32 +641,10 @@ def _build_ersa(ctx: typer.Context) -> "EasyRSA":
     return EasyRSA(easyrsa=resolved, pki_dir=pki_dir.absolute(), batch=batch)
 
 
-def _load_config(ctx: typer.Context, value: Path | None) -> Path | None:
-    reader = ConfigReader(APP_NAME)
-    commands = ctx.command.commands  # type: ignore[attr-defined]
-    try:
-        per_command = reader.load(value, commands=commands)
-    except ConfigError as exc:
-        raise typer.BadParameter(str(exc))
-    top_level = next(iter(per_command.values()), {})  # same caveat as before
-    # root options look up top-level keys; subcommands get default_map[<command name>]
-    ctx.default_map = {**top_level, **per_command}
-    return value
-
-
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    config_file: Path | None = typer.Option(
-        None,
-        "--config",
-        envvar="VPN_CONFIG",
-        dir_okay=False,
-        is_eager=True,
-        callback=_load_config,
-        show_default=False,
-        help=f"TOML config file. Default: {ConfigReader(APP_NAME).default_path()} (if present).",
-    ),
+    config_file: Path | None = TyperConfigReader(APP_NAME).option(envvar="VPN_CONFIG"),
     pki_dir: Path = typer.Option(
         Path("pki"),
         "--pki-dir",
