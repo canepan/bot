@@ -25,6 +25,7 @@ import subprocess
 import sys
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from typing import List, Optional, Tuple
 
@@ -35,7 +36,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-try:  # shared helper that talks to the Xymon server
+from tools.libs.config import ConfigError, ConfigReader
+try:
     from ..libs.xymon import Xymon, XymonStatus
 except (ImportError, ValueError):  # running as a plain script
     try:
@@ -72,7 +74,7 @@ def _find_easyrsa() -> Optional[str]:
     if on_path:
         return on_path
     for candidate in _EASYRSA_CANDIDATES:
-        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+        if Path(candidate).is_file() and os.access(candidate, os.X_OK):
             return candidate
     return None
 
@@ -82,13 +84,13 @@ class EasyRSA(object):
     """Small wrapper that runs EasyRSA commands against a chosen PKI dir."""
 
     easyrsa: str = attr.ib()
-    pki_dir: str = attr.ib()
+    pki_dir: Path = attr.ib()
     batch: bool = attr.ib(default=False)
 
     # -- low level ---------------------------------------------------------
     def _env(self) -> dict:
         env = os.environ.copy()
-        env["EASYRSA_PKI"] = self.pki_dir
+        env["EASYRSA_PKI"] = str(self.pki_dir)
         if self.batch:
             env["EASYRSA_BATCH"] = "1"
         return env
@@ -109,33 +111,31 @@ class EasyRSA(object):
     # -- state helpers -----------------------------------------------------
     @property
     def pki_initialised(self) -> bool:
-        return os.path.isdir(os.path.join(self.pki_dir, "issued")) or os.path.isfile(
-            os.path.join(self.pki_dir, "openssl-easyrsa.cnf")
-        )
+        return (self.pki_dir / "issued").is_dir() or (self.pki_dir / "openssl-easyrsa.cnf").is_file()
 
     @property
     def ca_built(self) -> bool:
-        return os.path.isfile(os.path.join(self.pki_dir, "ca.crt"))
+        return (self.pki_dir / "ca.crt").is_file()
 
     @property
     def crl_present(self) -> bool:
-        return os.path.isfile(os.path.join(self.pki_dir, "crl.pem"))
+        return (self.pki_dir / "crl.pem").is_file()
 
     @property
     def dh_present(self) -> bool:
-        return os.path.isfile(os.path.join(self.pki_dir, "dh.pem"))
+        return (self.pki_dir / "dh.pem").is_file()
 
     def _list_dir(self, sub: str, suffix: str) -> List[str]:
-        path = os.path.join(self.pki_dir, sub)
-        if not os.path.isdir(path):
+        path = self.pki_dir / sub
+        if not path.is_dir():
             return []
-        return sorted(f[: -len(suffix)] for f in os.listdir(path) if f.endswith(suffix))
+        return sorted(p.name.removesuffix(suffix) for p in path.iterdir() if p.name.endswith(suffix))
 
     def issued_certs(self) -> List[str]:
         return self._list_dir("issued", ".crt")
 
     def cert_path(self, name: str) -> str:
-        return os.path.join(self.pki_dir, "issued", f"{name}.crt")
+        return self.pki_dir / "issued" / f"{name}.crt"
 
     def cert_expiry(self, name: str) -> Optional[datetime]:
         """Return the notAfter date (UTC) of an issued cert, or None if unknown.
@@ -144,7 +144,7 @@ class EasyRSA(object):
         returns None so callers can degrade gracefully.
         """
         path = self.cert_path(name)
-        if not os.path.isfile(path) or shutil.which("openssl") is None:
+        if not path.is_file() or shutil.which("openssl") is None:
             return None
         try:
             out = subprocess.check_output(
@@ -262,7 +262,7 @@ def _render_cert_table(ersa: "EasyRSA") -> Optional[Table]:
     table.add_column("Expires")
     table.add_column("Status")
     for idx, name in enumerate(certs, 1):
-        has_key = os.path.isfile(os.path.join(ersa.pki_dir, "private", f"{name}.key"))
+        has_key = (ersa.pki_dir / "private" / f"{name}.key").is_file()
         date_text, status_text, style = _expiry_status(ersa.cert_expiry(name))
         table.add_row(
             str(idx),
@@ -489,11 +489,11 @@ def _write_ovpn(ersa: "EasyRSA", name: str, host: str, port: str, proto: str, ou
     Returns 0 on success, non-zero on failure. Used by both the interactive
     menu and the ``export`` sub-command.
     """
-    ca = os.path.join(ersa.pki_dir, "ca.crt")
-    crt = os.path.join(ersa.pki_dir, "issued", f"{name}.crt")
-    key = os.path.join(ersa.pki_dir, "private", f"{name}.key")
+    ca = ersa.pki_dir / "ca.crt"
+    crt = ersa.pki_dir / "issued" / f"{name}.crt"
+    key = ersa.pki_dir / "private" / f"{name}.key"
     for path in (ca, crt, key):
-        if not os.path.isfile(path):
+        if not path.is_file():
             console.print(f"Missing required file: {path}", style="red")
             return 1
 
@@ -548,7 +548,7 @@ def action_export_ovpn(ersa: "EasyRSA") -> None:
     proto = questionary.select("Protocol", choices=["udp", "tcp"]).ask()
     if proto is None:
         return
-    out_path = _ask_text("Output file", default=os.path.join(os.getcwd(), f"{name}.ovpn"))
+    out_path = _ask_text("Output file", default=str(Path(os.getcwd() / f"{name}.ovpn")))
     if not out_path:
         return
     _write_ovpn(ersa, name=name, host=server_host, port=server_port, proto=proto, out_path=out_path)
@@ -638,24 +638,49 @@ def _build_ersa(ctx: typer.Context) -> "EasyRSA":
             style="bold red",
         )
         raise typer.Exit(code=1)
-    return EasyRSA(easyrsa=resolved, pki_dir=os.path.abspath(pki_dir), batch=batch)
+    return EasyRSA(easyrsa=resolved, pki_dir=pki_dir.absolute(), batch=batch)
+
+
+def _load_config(ctx: typer.Context, value: Path | None) -> Path | None:
+    reader = ConfigReader(APP_NAME)
+    commands = ctx.command.commands  # type: ignore[attr-defined]
+    try:
+        per_command = reader.load(value, commands=commands)
+    except ConfigError as exc:
+        raise typer.BadParameter(str(exc))
+    top_level = next(iter(per_command.values()), {})  # same caveat as before
+    # root options look up top-level keys; subcommands get default_map[<command name>]
+    ctx.default_map = {**top_level, **per_command}
+    return value
 
 
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    pki_dir: str = typer.Option(
-        os.path.join(os.getcwd(), "pki"),
+    config_file: Path | None = typer.Option(
+        None,
+        "--config",
+        envvar="VPN_CONFIG",
+        dir_okay=False,
+        is_eager=True,
+        callback=_load_config,
+        show_default=False,
+        help=f"TOML config file. Default: {ConfigReader(APP_NAME).default_path()} (if present).",
+    ),
+    pki_dir: Path = typer.Option(
+        Path("pki"),
         "--pki-dir",
         help="Directory holding (or to hold) the PKI.",
     ),
-    easyrsa: Optional[str] = typer.Option(
+    easyrsa: str | None = typer.Option(
         None, "--easyrsa", help="Path to the easyrsa executable (auto-detected if omitted)."
     ),
     batch: bool = typer.Option(False, "--batch", help="Run EasyRSA non-interactively where possible."),
 ) -> None:
     """OpenVPN certificate manager (EasyRSA backend)."""
-    ctx.obj = {"pki_dir": pki_dir, "easyrsa": easyrsa, "batch": batch}
+    # config = ConfigReader(APP_NAME)
+    # ctx.default_map = config.load(config_file, commands=ctx.command.commands)  # type: ignore[attr-defined]
+    ctx.obj = {"pki_dir": pki_dir.expanduser(), "easyrsa": easyrsa, "batch": batch}
 
     # A sub-command was requested: let it run, skip the interactive menu.
     if ctx.invoked_subcommand is not None:
@@ -800,11 +825,11 @@ def cmd_export(
     host: str = typer.Option("vpn.example.com", "--host", help="VPN server hostname/IP."),
     port: int = typer.Option(1194, "--port", help="VPN server port."),
     proto: str = typer.Option("udp", "--proto", help="Protocol: udp or tcp."),
-    out: Optional[str] = typer.Option(None, "--out", help="Output .ovpn path (default: ./<name>.ovpn)."),
+    out: Path | None = typer.Option(None, "--out", help="Output .ovpn path (default: ./<name>.ovpn)."),
 ) -> None:
     """Export an inline .ovpn client profile (CA + cert + key)."""
     ersa = _build_ersa(ctx)
-    out_path = out or os.path.join(os.getcwd(), "{name}.ovpn")
+    out_path = out or Path(os.getcwd()) / f"{name}.ovpn"
     rc = _write_ovpn(ersa, name=name, host=host, port=str(port), proto=proto, out_path=out_path)
     raise typer.Exit(code=rc)
 
