@@ -29,12 +29,12 @@ unit_test:3.11:
   image: python:3.11
   extends: .tests
 
-unit_test:3.10:
-  image: python:3.10
-  extends: .tests
-
 unit_test:3.12:
   image: python:3.12
+  extends: .tests
+
+unit_test:3.13:
+  image: python:3.13
   extends: .tests
 
 pages:
