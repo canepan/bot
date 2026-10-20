@@ -4,7 +4,7 @@ image: python:3.11
 .tests:
   stage: Test
   script:
-    - tox -c tox-gitlab.ini
+    - tox -e py3
   before_script:
     - python --version
     - uname -a
@@ -36,6 +36,14 @@ unit_test:3.12:
 unit_test:3.13:
   image: python:3.13
   extends: .tests
+
+lint:
+  stage: Test
+  image: python:3.13
+  before_script:
+    - pip install tox
+  script:
+    - tox -e lint
 
 pages:
   stage: Publish

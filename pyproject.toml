@@ -173,6 +173,7 @@ allowlist_externals = ["{tox_root}/test/bats/bin/bats"]
 commands = [["{tox_root}/test/bats/bin/bats", "-r", "{tox_root}/test/shell/"]]
 
 [tool.tox.env.lint]
+skip_install = true
 deps = ["ruff"]
 commands = [
     ["ruff", "check", "src", "test"],
