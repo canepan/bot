@@ -13,6 +13,7 @@ dependencies = [
     'click',
     'click-loglevel',
     'dnspython',
+    'docker',
     'eyed3',
     'netifaces-plus',
     'ping3',
