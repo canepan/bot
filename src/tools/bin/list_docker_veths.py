@@ -18,6 +18,8 @@ sent, TX is traffic delivered to the container.
 
 import ctypes
 import os
+import subprocess
+import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -71,9 +73,33 @@ def host_ifindex_map() -> dict[str, str]:
     return ifaces
 
 
+def read_iface_field(iface: str, field_name: str) -> str | None:
+    try:
+        with open(f"/sys/class/net/{iface}/{field_name}") as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
 def resolve_peer_names(peer_indexes: list[str]) -> list[str]:
     host_ifaces = host_ifindex_map()
     return [host_ifaces[i] for i in peer_indexes if i in host_ifaces]
+
+
+def is_veth(iface: str) -> bool:
+    """Check if an interface is a veth pair endpoint.
+
+    A veth has ifindex != iflink (it points to its peer). Bridges and physical
+    interfaces have ifindex == iflink.
+    """
+    try:
+        with open(f"/sys/class/net/{iface}/ifindex") as f:
+            ifindex = f.read().strip()
+        with open(f"/sys/class/net/{iface}/iflink") as f:
+            iflink = f.read().strip()
+        return ifindex != iflink
+    except OSError:
+        return False
 
 
 def get_veths_via_exec(container) -> list[str]:
@@ -93,25 +119,79 @@ def get_veths_via_exec(container) -> list[str]:
     return resolve_peer_names(output[0].decode().split())
 
 
-def get_veths_via_setns(container) -> list[str]:
-    """Find veths by entering the container's netns from the host via setns."""
+def host_veths() -> dict[str, str]:
+    """Return {host_veth_name: ifindex} for every veth on the host."""
+    result = {}
+    for iface in os.listdir("/sys/class/net"):
+        if not is_veth(iface):
+            continue
+        ifindex = read_iface_field(iface, "ifindex")
+        if ifindex is not None:
+            result[iface] = ifindex
+    return result
+
+
+def get_veths_via_setns(container, debug: bool = False) -> list[str]:
+    """Find veths by parsing `ip -o link` from the container's netns.
+
+    Uses nsenter on the container PID to run `ip -o link show` in its network
+    namespace. This is a host-side operation — nothing is exec'd inside the
+    container. `ip link` queries netlink directly and respects the namespace,
+    unlike reading /sys/class/net which shows stale host data after setns.
+
+    Each veth line looks like:
+      63: eth0@if64: <...> link/ether ...
+    The peer ifindex (64) is the host-side veth's ifindex.
+    """
     container.reload()
-    nspath = container.attrs.get("NetworkSettings", {}).get("SandboxKey")
-    if not nspath:
+    state = container.attrs.get("State", {})
+    pid = state.get("Pid")
+    if not pid:
         return []
 
-    peer_indexes = []
-    with network_namespace(nspath):
-        for iface in os.listdir("/sys/class/net"):
-            if iface == "lo":
-                continue
-            try:
-                with open(f"/sys/class/net/{iface}/iflink") as f:
-                    peer_indexes.append(f.read().strip())
-            except OSError:
-                continue
+    try:
+        result = subprocess.run(
+            ["nsenter", "-t", str(pid), "-n", "ip", "-o", "link", "show"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError as e:
+        raise RuntimeError("nsenter not found — install util-linux") from e
 
-    return resolve_peer_names(peer_indexes)
+    if result.returncode != 0:
+        raise RuntimeError(f"nsenter failed: {result.stderr.strip()}")
+
+    # Parse lines like "63: eth0@if64:" to extract peer ifindex 64.
+    # ip -o uses literal \n as separator in some versions; handle both.
+    peer_ifindexes = set()
+    raw = result.stdout.strip()
+    # Try literal \n first (ip -o format), then actual newlines
+    for sep in ("\\n", "\n"):
+        if sep in raw:
+            lines = raw.split(sep)
+            break
+    else:
+        lines = [raw]
+    for line in lines:
+        if "@if" not in line:
+            continue
+        # Extract the @ifN part
+        peer_part = line.split("@if")[1].split(":")[0]
+        peer_ifindexes.add(peer_part)
+
+    if debug:
+        print(f"  [debug] container peers (host ifindexes): {sorted(peer_ifindexes)}", file=sys.stderr)
+
+    candidates = host_veths()
+    if debug:
+        print(f"  [debug] host veths (ifindex -> name): {candidates}", file=sys.stderr)
+
+    matches = []
+    for veth_name, veth_ifindex in candidates.items():
+        if veth_ifindex in peer_ifindexes:
+            matches.append(veth_name)
+    return matches
 
 
 def read_stats(iface: str) -> dict[str, int] | None:
@@ -241,9 +321,17 @@ def build_table(
     metavar="SECONDS",
     help="Refresh continuously, showing per-second traffic rates.",
 )
-def main(method: str, watch_interval: float | None) -> None:
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Print debug info for setns veth resolution.",
+)
+def main(method: str, watch_interval: float | None, debug: bool) -> None:
     client = docker.from_env()
-    getter = get_veths_via_exec if method == "exec" else get_veths_via_setns
+    if method == "exec":
+        getter = get_veths_via_exec
+    else:
+        getter = lambda c: get_veths_via_setns(c, debug=debug)
 
     if watch_interval is None:
         infos = collect_containers(client, getter)
