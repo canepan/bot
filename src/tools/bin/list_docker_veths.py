@@ -14,19 +14,23 @@ Two methods to find the host-side veth name:
 
 import ctypes
 import os
-import sys
 from contextlib import contextmanager
 
 import click
 import docker
+from rich.console import Console
+from rich.table import Table
+from rich.text import Text
 
 LIBC = ctypes.CDLL("libc.so.6", use_errno=True)
+
+console = Console()
+err_console = Console(stderr=True, style="bold red")
 
 
 @contextmanager
 def network_namespace(nspath: str):
     """Enter the given network namespace, then restore the original."""
-    # Save current namespace
     self_ns = os.open("/proc/self/ns/net", os.O_RDONLY)
     target_ns = os.open(nspath, os.O_RDONLY)
     try:
@@ -35,7 +39,6 @@ def network_namespace(nspath: str):
             raise OSError(err, f"setns failed: {os.strerror(err)}")
         yield
     finally:
-        # Always restore original namespace
         LIBC.setns(self_ns, 0)
         os.close(self_ns)
         os.close(target_ns)
@@ -62,8 +65,7 @@ def get_veths_via_exec(container) -> list[str]:
             demux=True,
         )
     except docker.errors.APIError as e:
-        print(f"  (could not exec in container: {e})", file=sys.stderr)
-        return []
+        raise RuntimeError(f"could not exec in container: {e}") from e
 
     if exit_code != 0 or output[0] is None:
         return []
@@ -80,7 +82,6 @@ def get_veths_via_setns(container) -> list[str]:
     if not nspath:
         return []
 
-    # Read iflinks from inside the container's netns
     peer_indexes = []
     with network_namespace(nspath):
         for iface in os.listdir("/sys/class/net"):
@@ -92,7 +93,6 @@ def get_veths_via_setns(container) -> list[str]:
             except OSError:
                 continue
 
-    # Resolve against host interfaces (we are back in the host netns here)
     host_ifaces = host_ifindex_map()
     return [host_ifaces[i] for i in peer_indexes if i in host_ifaces]
 
@@ -110,29 +110,42 @@ def main(method: str) -> None:
     containers = client.containers.list()
 
     if not containers:
-        print("No running containers.")
+        console.print("[yellow]No running containers.[/yellow]")
         return
 
     getter = get_veths_via_exec if method == "exec" else get_veths_via_setns
 
+    table = Table(
+        title=f"Running containers ({len(containers)}) — method: {method}",
+        title_justify="left",
+        show_lines=True,
+    )
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("ID", style="magenta", no_wrap=True)
+    table.add_column("Image", style="green")
+    table.add_column("Veth interfaces", style="yellow")
+
     for c in containers:
-        name = c.name
-        short_id = c.short_id
         image = c.image.tags[0] if c.image.tags else c.image.short_id
-        print(f"{name} ({short_id}) [{image}]")
-        try:
-            veths = getter(c)
-        except PermissionError as e:
-            print(f"  error: {e} (setns method requires root or CAP_SYS_ADMIN)")
-            continue
-        except OSError as e:
-            print(f"  error: {e}")
-            continue
-        if veths:
-            for v in veths:
-                print(f"  veth: {v}")
+        net_mode = c.attrs.get("HostConfig", {}).get("NetworkMode", "")
+        if net_mode == "host":
+            veth_cell = Text("(host network — shares host interfaces)", style="dim")
         else:
-            print("  veth: (none found - may use host/network-none mode)")
+            try:
+                veths = getter(c)
+                if veths:
+                    veth_cell = "\n".join(veths)
+                else:
+                    veth_cell = Text("(none found)", style="dim")
+            except PermissionError as e:
+                veth_cell = Text(
+                    f"{e} — setns needs root/CAP_SYS_ADMIN", style="bold red"
+                )
+            except (OSError, RuntimeError) as e:
+                veth_cell = Text(f"error: {e}", style="bold red")
+        table.add_row(c.name, c.short_id, image, veth_cell)
+
+    console.print(table)
 
 
 if __name__ == "__main__":
