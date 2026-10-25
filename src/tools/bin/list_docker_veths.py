@@ -18,6 +18,7 @@ sent, TX is traffic delivered to the container.
 
 import ctypes
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
@@ -64,10 +65,9 @@ def network_namespace(nspath: str):
 def host_ifindex_map() -> dict[str, str]:
     """Build ifindex -> interface name map for the host."""
     ifaces = {}
-    for iface in os.listdir("/sys/class/net"):
+    for iface_path in Path("/sys/class/net").iterdir():
         try:
-            with open(f"/sys/class/net/{iface}/ifindex") as f:
-                ifaces[f.read().strip()] = iface
+            ifaces[iface_path.joinpath("ifindex").read_text().strip()] = iface_path.name
         except OSError:
             continue
     return ifaces
@@ -75,8 +75,7 @@ def host_ifindex_map() -> dict[str, str]:
 
 def read_iface_field(iface: str, field_name: str) -> str | None:
     try:
-        with open(f"/sys/class/net/{iface}/{field_name}") as f:
-            return f.read().strip()
+        return Path(f"/sys/class/net/{iface}/{field_name}").read_text().strip()
     except OSError:
         return None
 
@@ -93,10 +92,9 @@ def is_veth(iface: str) -> bool:
     interfaces have ifindex == iflink.
     """
     try:
-        with open(f"/sys/class/net/{iface}/ifindex") as f:
-            ifindex = f.read().strip()
-        with open(f"/sys/class/net/{iface}/iflink") as f:
-            iflink = f.read().strip()
+        base = Path(f"/sys/class/net/{iface}")
+        ifindex = base.joinpath("ifindex").read_text().strip()
+        iflink = base.joinpath("iflink").read_text().strip()
         return ifindex != iflink
     except OSError:
         return False
@@ -122,12 +120,12 @@ def get_veths_via_exec(container) -> list[str]:
 def host_veths() -> dict[str, str]:
     """Return {host_veth_name: ifindex} for every veth on the host."""
     result = {}
-    for iface in os.listdir("/sys/class/net"):
-        if not is_veth(iface):
+    for iface_path in Path("/sys/class/net").iterdir():
+        if not is_veth(iface_path.name):
             continue
-        ifindex = read_iface_field(iface, "ifindex")
+        ifindex = read_iface_field(iface_path.name, "ifindex")
         if ifindex is not None:
-            result[iface] = ifindex
+            result[iface_path.name] = ifindex
     return result
 
 
@@ -199,8 +197,7 @@ def read_stats(iface: str) -> dict[str, int] | None:
     stats = {}
     try:
         for key in ("rx_bytes", "tx_bytes"):
-            with open(f"/sys/class/net/{iface}/statistics/{key}") as f:
-                stats[key] = int(f.read().strip())
+            stats[key] = int(Path(f"/sys/class/net/{iface}/statistics/{key}").read_text().strip())
     except (OSError, ValueError):
         return None
     return stats
