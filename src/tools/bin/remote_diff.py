@@ -1,10 +1,19 @@
-#!/mnt/opt/nicola/tools/bin/python
+#!/usr/bin/env python3
+"""Show the diff of files rsync would transfer, between local and/or remote dirs.
+
+`source` and `destination` are rsync-style pathspecs: `host:/path` for a
+remote side (read over SFTP via paramiko), plain `/path` for a local side.
+"""
+
 import os
 import re
+from contextlib import contextmanager
+from dataclasses import dataclass
 from difflib import unified_diff
 from subprocess import check_output
 
 import click
+import paramiko
 
 HELP = """
 Legend: each line in the format
@@ -22,11 +31,71 @@ YXcstpoguax FILENAME
 """
 
 
-def cat_cmd(pathspec: str, file_name: str) -> list:
+@dataclass
+class PathSpec:
+    """An rsync-style pathspec, parsed into host (None for local) and path."""
+
+    host: str | None
+    path: str
+
+    @classmethod
+    def parse(cls, spec: str) -> 'PathSpec':
+        """'host:/path' -> PathSpec('host', '/path'); '/path' -> PathSpec(None, '/path').
+
+        >>> PathSpec.parse('nas:/srv/etc')
+        PathSpec(host='nas', path='/srv/etc')
+        >>> PathSpec.parse('/etc')
+        PathSpec(host=None, path='/etc')
+        """
+        host, sep, path = spec.partition(':')
+        if sep and not spec.startswith('/') and '/' not in host:
+            return cls(host=host, path=path or '.')
+        return cls(host=None, path=spec)
+
+    def label(self, fname: str) -> str:
+        prefix = f'{self.host}:' if self.host else ''
+        return f'{prefix}{os.path.join(self.path, fname)}'
+
+
+@contextmanager
+def sftp_client(host: str):
+    client = paramiko.SSHClient()
+    client.load_system_host_keys()
+    client.set_missing_host_key_policy(paramiko.WarningPolicy())
+    client.connect(host)
     try:
-        return ["ssh", pathspec.split(":")[0], "cat", os.path.join(pathspec.split(":")[1], file_name)]
-    except Exception:
-        return ["cat", os.path.join(pathspec, file_name)]
+        yield client.open_sftp()
+    finally:
+        client.close()
+
+
+def read_file(spec: PathSpec, fname: str) -> str:
+    """Read `fname` under spec.path; over SFTP for remote specs, locally otherwise."""
+    full = os.path.join(spec.path, fname)
+    if spec.host is None:
+        with open(full) as fh:
+            return fh.read()
+    with sftp_client(spec.host) as sftp:
+        with sftp.open(full, 'r') as fh:
+            return fh.read().decode()
+
+
+def iter_diffs(source: PathSpec, destination: PathSpec, matches: list[tuple[str, str, str]]):
+    for _line, change, fname in matches:
+        s_content = d_content = None
+        if "+++" in change:
+            if change[0] == "<":
+                d_content = " "
+            if change[0] == ">":
+                s_content = " "
+        s_content = s_content if s_content is not None else read_file(source, fname)
+        d_content = d_content if d_content is not None else read_file(destination, fname)
+        yield from unified_diff(
+            s_content.splitlines(),
+            d_content.splitlines(),
+            source.label(fname),
+            destination.label(fname),
+        )
 
 
 @click.command()
@@ -39,23 +108,9 @@ def main(source: str, destination: str, verbose: bool):
         click.echo(output)
         click.echo(HELP)
         if verbose:
-            for match in matches:
-                s_content = d_content = None
-                if "+++" in match[1]:
-                    if match[1][0] == "<":
-                        d_content = " "
-                    if match[1][0] == ">":
-                        s_content = " "
-                fname = match[2]
-                s_content = s_content or check_output(cat_cmd(source, fname), universal_newlines=True)
-                d_content = d_content or check_output(cat_cmd(destination, fname), universal_newlines=True)
-                for diff_line in unified_diff(
-                    s_content.splitlines(),
-                    d_content.splitlines(),
-                    os.path.join(source, fname),
-                    os.path.join(destination, fname),
-                ):
-                    click.echo(diff_line)
+            src, dst = PathSpec.parse(source), PathSpec.parse(destination)
+            for diff_line in iter_diffs(src, dst, matches):
+                click.echo(diff_line)
 
 
 if __name__ == "__main__":
