@@ -24,6 +24,7 @@
   frameworks (AppKit/rumps): re-exec the command with `--foreground` in a new
   session instead.
 - prefer pathlib over os.path
+- do not swap existing quotes or double quotes
 
 ## Testing
 - Tests live in `test/test_<module>.py`; run them with tox:
