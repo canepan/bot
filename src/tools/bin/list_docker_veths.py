@@ -24,6 +24,7 @@ import sys
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from functools import partial
 
 import click
 import docker
@@ -104,8 +105,7 @@ def get_veths_via_exec(container) -> list[str]:
     """Find veths by exec'ing into the container."""
     try:
         exit_code, output = container.exec_run(
-            ["sh", "-c", "ls -d /sys/class/net/*/ | grep -v '/lo/' | "
-             "xargs -n1 -I{} sh -c 'cat {}iflink'"],
+            ["sh", "-c", "ls -d /sys/class/net/*/ | grep -v '/lo/' | xargs -n1 -I{} sh -c 'cat {}iflink'"],
             demux=True,
         )
     except docker.errors.APIError as e:
@@ -328,7 +328,7 @@ def main(method: str, watch_interval: float | None, debug: bool) -> None:
     if method == "exec":
         getter = get_veths_via_exec
     else:
-        getter = lambda c: get_veths_via_setns(c, debug=debug)
+        getter = partial(get_veths_via_setns, debug=debug)
 
     if watch_interval is None:
         infos = collect_containers(client, getter)
